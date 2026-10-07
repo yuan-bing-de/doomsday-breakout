@@ -1,0 +1,496 @@
+extends CharacterBody2D
+
+# ============================================================================
+# player.gd —— 玩家角色脚本（移动、跳跃、射击、血量）
+# ============================================================================
+# 挂在 Player 场景（CharacterBody2D）上。
+# 玩家是「物理角色」，用 move_and_slide() 处理移动和落地。
+#
+# 你想改的地方：
+#   - 移动速度 / 跳跃高度    → 看 speed / jump_velocity 常量
+#   - 角色图片大小           → 看 _ready() 里的 120.0
+#   - 血量数值 / 受伤扣多少  → 看 health 变量 和 take_damage()
+#   - 射击间隔 / 子弹伤害     → 看 SHOOT_COOLDOWN 和 bullet 的 take_damage(1)
+# ============================================================================
+
+# ---- 基础移动参数 ----
+@export var speed := 240.0          # 左右移动速度（像素/秒）。想跑快点就调大
+@export var acceleration := 1800.0  # 起步加速度，避免按键后瞬间滑出去
+@export var deceleration := 2200.0  # 松键刹车速度，避免突然定格
+@export var jump_velocity := -520.0 # 跳跃初速度（负数=向上）。想跳更高就调更小（更负）
+const GRAVITY := 1200.0             # 重力，每帧给下落加速。越大掉得越快
+
+@onready var sprite: Sprite2D = $Sprite2D   # 角色贴图节点
+@onready var weapon_sprite: Sprite2D = $WeaponSprite   # 手持武器贴图
+const bullet_scene = preload("res://Bullet.tscn")  # 子弹场景（预加载）
+var facing := 1                     # 朝向：1=朝右，-1=朝左（用于射击方向和贴图翻转）
+var shoot_timer := 0.0              # 当前冷却计时器
+var aim_dir := Vector2.RIGHT        # 当前瞄准方向
+const HAND_OFFSET_RIGHT := Vector2(-16, 4)   # 右手相对于角色中心的偏移（画面左侧）
+const HAND_OFFSET_LEFT  := Vector2(16, 4)    # 朝左时左手偏移
+var weapon_base_scale := Vector2(1, 1)      # 武器原始缩放（用于左右翻转时保留大小）
+
+# 重制后的六名游戏内角色贴图。按角色固定使用，避免切换武器时回退旧人物。
+const REMADE_SIDE_TEXTURES := {
+	"driver": "res://art/characters_v2/side/driver_mp5.png",
+	"doctor": "res://art/characters_v2/side/doctor_g17.png",
+	"police": "res://art/characters_v2/side/police_m1911.png",
+	"soldier": "res://art/characters_v2/side/soldier_m249.png",
+	"mechanic": "res://art/characters_v2/side/mechanic_ak47.png",
+	"programmer": "res://art/characters_v2/side/programmer_de.png",
+}
+
+# ---- 走路动画（路线 B：逐帧迈步）----
+# 贴图在 art/walk/{角色}_{武器}_0..3.png，4 帧一个循环：
+#   F0 接触（后腿蹬地 / 前腿着地）→ F1 换腿（后腿前摆抬起、身体抬起）→ F2 反向接触 → F3 反向换腿
+# 帧图是把原图的下半身做「逐行整像素位移 + 中轴镜像」生成的，
+# 没有插值、没有旋转，像素网格完整，风格和原图完全一致。
+const WALK_FRAME_COUNT := 4
+# 每个角色的「步幅」（贴图 1216 高缩放到 180 时的一步长度，屏幕像素）
+# 用来算步频，让脚和地面的相对速度对上，不会打滑
+const STRIDE_PX := {
+	"driver": 61.3, "doctor": 24.0, "police": 38.2,
+	"soldier": 43.1, "mechanic": 0.0, "programmer": 0.0,
+}
+
+var walk_phase := 0.0          # 步伐相位（0~TAU 跑完一个 4 帧循环，每跨 π 即落脚一次）
+var _ground_distance := 0.0    # 本次移动在地面上真正走过的距离，用它而不是定时器推进动画
+var idle_time := 0.0           # 站立呼吸计时
+var walk_frames: Array[Texture2D] = []   # 当前（角色,武器）的 4 张迈步帧
+var walk_frame_idx := -1                 # 当前用的是第几帧（-1 = 还没设过）
+var stride_px := 60.0                    # 当前角色的步幅（屏幕像素），用于算步频
+var sprite_base_scale := Vector2.ONE  # 角色贴图的目标缩放（180px 高），压缩拉伸以它为基准
+var squash := 0.0              # 当前压缩量：>0 压扁，<0 拉伸
+var _dust_tex: Texture2D = null  # 扬尘贴图（只生成一次，复用）
+
+# ---- 枪口偏移（按角色不同，从贴图像素扫描得出，180px 高缩放后）----
+# 每个角色持枪伸出长度不同，子弹/火光从这里射出
+const MUZZLE_OFFSETS := {
+	"mechanic":   Vector2(61, -41),
+	"driver":     Vector2(50, -37),
+	"doctor":     Vector2(37, -36),
+	"police":     Vector2(61, -44),
+	"soldier":    Vector2(59, -48),
+	"programmer": Vector2(45, -37),
+}
+
+# ---- 血量系统 ----
+# 玩家 100 血，每次被丧尸/舌头打到扣 5 点（见 take_damage）
+var health := 100
+var max_hp := 100
+var invuln := 0.0        # 无敌时间（秒）。受伤后短暂无敌，避免一帧扣光
+var dead := false        # 是否已死亡（死亡后停止一切操作）
+
+# ----------------------------------------------------------------------------
+# _ready()：角色一进场执行一次
+# ----------------------------------------------------------------------------
+func _ready():
+	# 保险：独立的武器 Sprite 必须永远隐藏（角色贴图里已含枪）
+	if weapon_sprite != null:
+		weapon_sprite.visible = false
+		weapon_sprite.texture = null
+
+	# 初始化武器系统：装备开局赠送的 M1911
+	Weapons.equip("pistol_m1911")
+	Weapons.weapon_changed.connect(_on_weapon_changed)
+
+	# 按（角色, 武器）组合加载贴图；没有组合图时回退到角色 v3 图
+	_refresh_character_texture()
+	update_hud()   # 刷新血条显示
+	_update_weapon_visual()
+
+# ----------------------------------------------------------------------------
+# _physics_process()：物理帧循环（约每秒 60 次），所有移动逻辑写这里
+# ----------------------------------------------------------------------------
+func _physics_process(delta):
+	if dead:
+		return   # 死了就什么都不做
+
+	# 无敌时间倒计时
+	if invuln > 0:
+		invuln -= delta
+
+	# ---- 重力与落地 ----
+	if not is_on_floor():
+		velocity.y += GRAVITY * delta   # 不在地面 → 受重力下落
+	else:
+		if velocity.y > 0:
+			velocity.y = 0              # 落地后停止下落
+
+	# ---- 左右移动 ----
+	var dir := 0
+	if Input.is_action_pressed("move_forward"):   # 默认 W 键 / 右键
+		dir += 1
+	if Input.is_action_pressed("move_backward"):  # 默认 S 键 / 左键
+		dir -= 1
+	# 速度平滑地追向目标速度；人物起步、停步与逐帧步态会保持一致。
+	var target_speed := dir * speed
+	var rate := acceleration if dir != 0 else deceleration
+	velocity.x = move_toward(velocity.x, target_speed, rate * delta)
+	if dir != 0:
+		facing = dir                  # 记录朝向
+		sprite.flip_h = dir < 0       # 朝左就水平翻转贴图
+
+	# ---- 跳跃 ----
+	if Input.is_action_just_pressed("jump") and is_on_floor():   # 默认空格，且必须在地面
+		velocity.y = jump_velocity
+		squash = -0.12   # 起跳瞬间纵向拉伸（<0 = 拉长）
+
+	# 执行移动（CharacterBody2D 的标准移动函数）
+	var was_air := not is_on_floor()
+	var previous_x := global_position.x
+	move_and_slide()
+	# 只记录碰撞系统实际允许的地面位移：撞到障碍物时，人物不会原地踏步。
+	_ground_distance = absf(global_position.x - previous_x) if is_on_floor() else 0.0
+	if was_air and is_on_floor():
+		squash = 0.16    # 落地瞬间纵向压扁
+
+	# ---- 走路/站立动画（上下起伏 + 扬尘 + 压缩拉伸）----
+	_update_walk_animation(delta, _ground_distance)
+
+	# ---- 计算瞄准方向（始终指向最近丧尸）----
+	_update_aim()
+
+	# ---- 更新武器视觉位置与角度 ----
+	_update_weapon_aim()
+
+	# ---- 射击 ----
+	shoot_timer -= delta
+	# ★ 鼠标左键开火前先看指针是否悬在 UI 控件上（按钮/面板等）。
+	#   Input.is_mouse_button_pressed() 是轮询原始鼠标状态，不经过 GUI 事件系统，
+	#   点「菜单/商店/设置」按钮的那一下按下会被误当成开火 → 点菜单就开枪。
+	#   悬在 UI 上时禁止鼠标开火；键盘 J（shoot 动作）不受影响。
+	var over_ui: bool = get_viewport().gui_get_hovered_control() != null
+	if shoot_timer <= 0 and (Input.is_action_pressed("shoot") or (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not over_ui)):
+		shoot()
+
+# ----------------------------------------------------------------------------
+# _update_walk_animation()：走路/站立的程序化动画（不换贴图）
+#   · 走路：身体按正弦曲线上下起伏，每走一段距离在脚底扬起尘土
+#   · 站立：极轻微的呼吸起伏
+#   · 起跳/落地：整体压缩拉伸（squash & stretch）
+# ----------------------------------------------------------------------------
+func _update_walk_animation(delta, moved_distance := 0.0):
+	if sprite == null:
+		return
+
+	var moving := moved_distance > 0.01 and is_on_floor()
+
+	if moving:
+		# 一整个循环有左右两步。相位由实际走过的像素数推进，
+		# 所以无论帧率、加速度或碰撞如何变化，脚步都不会脱离位移节奏。
+		var prev_phase := walk_phase
+		var cycle_distance := maxf(1.0, 2.0 * stride_px)
+		walk_phase = fmod(walk_phase + moved_distance / cycle_distance * TAU, TAU)
+		# 逐帧换贴图：4 帧均分一个循环
+		_apply_walk_frame(int(walk_phase / (TAU / WALK_FRAME_COUNT)) % WALK_FRAME_COUNT)
+		# 贴图保持与碰撞体同一水平锚点，不能额外左右漂移，否则会显得脚在滑。
+		sprite.position.x = lerpf(sprite.position.x, 0.0, 0.35)
+		sprite.position.y = lerpf(sprite.position.y, 0.0, 0.4)
+
+		# 脚步扬尘：相位每跨过 π 的整数倍 = 脚落地瞬间（F0 / F2 都是落脚帧）
+		if int(walk_phase / PI) != int(prev_phase / PI):
+			_spawn_footstep_dust()
+	else:
+		# 站立/滞空：停在接触帧，轻微呼吸
+		idle_time += delta
+		_apply_walk_frame(0)
+		sprite.position.y = lerpf(sprite.position.y, sin(idle_time * 2.2) * 0.9, 0.15)
+		sprite.position.x = lerpf(sprite.position.x, 0.0, 0.2)
+
+	# 压缩拉伸：逐帧衰减回 0
+	squash = lerpf(squash, 0.0, 0.18)
+	if sprite_base_scale != Vector2.ZERO:
+		sprite.scale = Vector2(
+			sprite_base_scale.x * (1.0 - squash),
+			sprite_base_scale.y * (1.0 + squash)
+		)
+
+# ----------------------------------------------------------------------------
+# _apply_walk_frame()：切换到第 idx 张迈步帧（idx 不变就不动，省开销）
+# ----------------------------------------------------------------------------
+func _apply_walk_frame(idx: int):
+	if walk_frames.size() != WALK_FRAME_COUNT:
+		return                      # 没生成过这套帧，保持原贴图
+	if idx == walk_frame_idx:
+		return
+	walk_frame_idx = idx
+	sprite.texture = walk_frames[idx]
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+# ----------------------------------------------------------------------------
+# _spawn_footstep_dust()：脚底扬起一小撮尘土
+# ----------------------------------------------------------------------------
+func _spawn_footstep_dust():
+	if get_parent() == null:
+		return
+	var d := Sprite2D.new()
+	d.texture = _footstep_dust_texture()
+	d.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# 落脚点：角色中心往下约一个半身（脚底附近），在朝向反侧稍稍偏后
+	d.global_position = global_position + Vector2(-facing * randf_range(0.0, 8.0), 86.0)
+	d.z_index = -1
+	var sc := randf_range(0.45, 0.75)
+	d.scale = Vector2(sc, sc)
+	d.modulate.a = randf_range(0.55, 0.85)
+	get_parent().add_child(d)
+
+	var tw := get_tree().create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(d, "position:y", d.position.y - 12.0, 0.36)
+	tw.tween_property(d, "position:x", d.position.x - facing * 10.0, 0.36)
+	tw.tween_property(d, "modulate:a", 0.0, 0.36)
+	tw.chain().tween_callback(d.queue_free)
+
+# 生成一张小圆形尘土贴图（只做一次，之后重复使用）
+func _footstep_dust_texture() -> Texture2D:
+	if _dust_tex != null:
+		return _dust_tex
+	var sz := 14
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := (sz - 1) / 2.0
+	for y in range(sz):
+		for x in range(sz):
+			var dd := Vector2(x - c, y - c).length()
+			if dd < 6.0:
+				var a := clampf(1.0 - dd / 6.0, 0.0, 1.0)
+				img.set_pixel(x, y, Color(0.70, 0.66, 0.58, a))
+	_dust_tex = ImageTexture.create_from_image(img)
+	return _dust_tex
+
+# ----------------------------------------------------------------------------
+# shoot()：发射子弹
+# ----------------------------------------------------------------------------
+func shoot():
+	var wp := Weapons.get_current()
+	shoot_timer = 1.0 / wp.fire_rate   # 按武器射速决定冷却
+	var b := bullet_scene.instantiate()
+
+	# 子弹从枪口射出：按角色查表获取枪口偏移（180px 高缩放后）
+	# 朝向翻转（sprite.flip_h=true）时：x 取负，y 不变
+	var muzzle_base: Vector2 = MUZZLE_OFFSETS.get(GameState.selected_character, Vector2(50, -40))
+	var muzzle_x := muzzle_base.x if facing > 0 else -muzzle_base.x
+	var muzzle_y := muzzle_base.y
+	var muzzle_pos := global_position + Vector2(muzzle_x, muzzle_y)
+	b.global_position = muzzle_pos
+	b.direction = aim_dir
+	b.damage = wp.damage
+	b.owner_node = self          # 告诉子弹「我是发射者」，避免打到自己
+	b.bullet_size = wp.get("bullet_size", 1.0)        # 子弹大小（和枪械口径成比例）
+	b.bullet_tracer = wp.get("bullet_tracer", false)  # 机枪有曳光
+	get_parent().add_child(b)
+
+	# 枪口火光
+	_spawn_muzzle_flash(muzzle_pos, wp.get("bullet_size", 1.0))
+
+	# 射击后坐力：武器轻微后移
+	if weapon_sprite != null:
+		weapon_sprite.position -= aim_dir * 1.5
+	if has_node("/root/AudioManager"):
+		AudioManager.play_sfx("shoot")
+
+# ----------------------------------------------------------------------------
+# _spawn_muzzle_flash()：在枪口位置生成短暂火光效果
+# ----------------------------------------------------------------------------
+func _spawn_muzzle_flash(pos: Vector2, wp_size: float):
+	var flash := Sprite2D.new()
+	flash.name = "MuzzleFlash"
+	flash.z_index = 5   # 盖在角色之上
+
+	# 画一个星形火光贴图（中心白黄 → 外圈橙红 → 十字射线）
+	var sz := 20
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := sz / 2
+	for y in range(sz):
+		for x in range(sz):
+			var dx := x - c
+			var dy := y - c
+			var dist := sqrt(dx * dx + dy * dy)
+			if dist < 2:
+				img.set_pixel(x, y, Color(1, 1, 0.85, 1))         # 白黄核心
+			elif dist < 4:
+				img.set_pixel(x, y, Color(1, 0.8, 0.2, 0.95))     # 黄色
+			elif dist < 6:
+				img.set_pixel(x, y, Color(1, 0.45, 0.1, 0.7))     # 橙色
+			elif (abs(dx) <= 1 and abs(dy) < 9) or (abs(dy) <= 1 and abs(dx) < 9):
+				img.set_pixel(x, y, Color(1, 0.5, 0.1, 0.35))     # 十字射线
+
+	flash.texture = ImageTexture.create_from_image(img)
+	flash.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	flash.global_position = pos
+	flash.rotation = aim_dir.angle()           # 旋转对齐射击方向
+	var sc := 0.8 + wp_size * 0.5              # 大口径武器火光更大
+	flash.scale = Vector2(sc, sc)
+	get_parent().add_child(flash)
+
+	# 动画：快速放大 + 淡出，0.08 秒后删除
+	var tw := create_tween()
+	tw.tween_property(flash, "scale", Vector2(sc * 1.6, sc * 1.6), 0.03)
+	tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.08)
+	tw.tween_callback(flash.queue_free)
+
+func _update_aim():
+	# 自动瞄准：只在枪口朝向（facing）那一侧找最近丧尸
+	# 朝右(facing=1)时只瞄右边的丧尸，朝左(facing=-1)时只瞄左边的丧尸
+	# 朝向方向没有丧尸时，保持水平朝前射击
+	aim_dir = Vector2(facing, 0)
+	var zombies := get_tree().get_nodes_in_group("zombies")
+	var nearest = null
+	var nearest_dist := INF
+	for z in zombies:
+		# 方向过滤：只有丧尸在 facing 方向上（身前）才参与瞄准
+		var offset_x: float = z.global_position.x - global_position.x
+		if offset_x * facing <= 0:
+			continue   # 丧尸在身后或正上方，跳过
+		var d := global_position.distance_to(z.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = z
+	if nearest != null:
+		aim_dir = (nearest.global_position - global_position).normalized()
+
+func _update_weapon_aim():
+	if weapon_sprite == null:
+		return
+	var angle := aim_dir.angle()
+	weapon_sprite.rotation = angle
+	if aim_dir.x >= 0:
+		weapon_sprite.position = HAND_OFFSET_RIGHT
+		weapon_sprite.scale = Vector2(weapon_base_scale.x, weapon_base_scale.y)
+	else:
+		weapon_sprite.position = HAND_OFFSET_LEFT
+		weapon_sprite.scale = Vector2(weapon_base_scale.x, -weapon_base_scale.y)
+
+func _input(event):
+	# 数字键 1~6 装备对应武器
+	if event is InputEventKey and event.pressed and not event.echo:
+		var keys := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6]
+		for i in range(keys.size()):
+			if event.keycode == keys[i]:
+				var id: String = Weapons.ORDER[i]
+				if Weapons.is_unlocked(id):
+					Weapons.equip(id)
+				else:
+					print("武器未解锁: %s (需要 %d 金币)" % [Weapons.DATA[id].name, Weapons.DATA[id].price])
+
+func _on_weapon_changed(id: String):
+	_update_weapon_visual()
+
+func _update_weapon_visual():
+	# 角色贴图（重绘版）手里已经有枪，所以不再叠加独立的武器 Sprite
+	if weapon_sprite != null:
+		weapon_sprite.texture = null
+		weapon_sprite.visible = false
+	# 武器变化时刷新（角色×武器）组合贴图
+	_refresh_character_texture()
+
+# 优先加载重制侧面人物；没有重制资源时才回退旧的角色武器组合图。
+func _refresh_character_texture():
+	var char_id: String = GameState.selected_character
+	var wid: String = Weapons.current_id
+	var combo := "res://art/chars/%s_%s.png" % [char_id, wid]
+	var armed := "res://art/chars/%s_m1911.png" % char_id
+	var fallback := "res://art/%s.png" % char_id
+	var path: String = REMADE_SIDE_TEXTURES.get(char_id, combo)
+	if not ResourceLoader.exists(path):
+		path = combo
+	if not ResourceLoader.exists(path):
+		path = armed
+	if not ResourceLoader.exists(path):
+		path = fallback
+	print("[player] char=%s weapon=%s -> load %s" % [char_id, wid, path])
+	if ResourceLoader.exists(path):
+		var tex := load(path) as Texture2D
+		sprite.texture = tex
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var s := 180.0 / tex.get_height()
+		# 记下基准缩放：起跳/落地压缩拉伸以它为基准，避免把角色越缩越小
+		sprite_base_scale = Vector2(s, s)
+		sprite.scale = sprite_base_scale
+		stride_px = float(STRIDE_PX.get(char_id, 60.0))
+		if stride_px <= 0.1:
+			stride_px = 60.0
+		# 旧逐帧图包含旧人物，会在下一帧覆盖新版贴图。
+		# 新版逐帧动画完成前保留程序化起伏、压缩和扬尘，但不切换旧图片。
+		walk_frames.clear()
+		walk_frame_idx = -1
+	else:
+		var img: Image = Image.create(32, 48, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0.25, 0.6, 1.0))
+		sprite.texture = ImageTexture.create_from_image(img)
+
+# 加载 art/walk/{key}_0..3.png；缺任何一张就整体放弃（保持原贴图不动）
+func _load_walk_frames(key: String):
+	walk_frames.clear()
+	walk_frame_idx = -1
+	var got: Array[Texture2D] = []
+	for i in range(WALK_FRAME_COUNT):
+		var p := "res://art/walk/%s_%d.png" % [key, i]
+		if not ResourceLoader.exists(p):
+			return
+		got.append(load(p) as Texture2D)
+	walk_frames = got
+
+# ----------------------------------------------------------------------------
+# update_hud()：刷新左下角血条
+# 血条用 ColorRect，直接改宽度和颜色，简单可靠（不用图片）
+# ----------------------------------------------------------------------------
+func update_hud():
+	var bar_fg: ColorRect = get_tree().get_first_node_in_group("health_bar_fg")
+	var label: Label = get_tree().get_first_node_in_group("health_label")
+	if bar_fg != null:
+		var pct := float(health) / float(max_hp)
+		pct = clamp(pct, 0.0, 1.0)
+		# 宽度：满血 196px，按剩余血量百分比缩放
+		bar_fg.size.x = int(196.0 * pct)
+		# 颜色随血量变化：>50% 绿，>25% 黄，否则红
+		if pct > 0.5:
+			bar_fg.color = Color(0.15, 0.85, 0.2, 1)    # 绿色
+		elif pct > 0.25:
+			bar_fg.color = Color(0.9, 0.75, 0.1, 1)     # 黄色
+		else:
+			bar_fg.color = Color(0.9, 0.12, 0.12, 1)     # 红色
+	if label != null:
+		label.text = "HP: %d" % health   # 显示数字，如 HP: 95
+
+# ----------------------------------------------------------------------------
+# take_damage()：受伤扣血
+#   amount 是扣多少点（丧尸/舌头都传 5）
+# ----------------------------------------------------------------------------
+func take_damage(amount):
+	if invuln > 0 or dead:
+		return   # 无敌中或已死 → 不扣
+	health -= amount
+	invuln = 1.0        # 受伤后 1 秒无敌
+	update_hud()        # 刷新血条
+	# 闪红一下提示受伤
+	sprite.modulate = Color(1, 0.3, 0.3)
+	await get_tree().create_timer(0.12).timeout
+	sprite.modulate = Color(1, 1, 1)
+	if health <= 0:
+		_show_game_over()   # 血空了 → 游戏结束
+
+# ----------------------------------------------------------------------------
+# _show_game_over()：显示「游戏结束」面板，并按 R 重开
+# ----------------------------------------------------------------------------
+func _show_game_over():
+	dead = true
+	var go_panel: Control = get_tree().get_first_node_in_group("game_over_panel")
+	if go_panel != null:
+		go_panel.visible = true   # 显示结束面板（Main.tscn 里已做好）
+		# 让所有丧尸停下
+		for z in get_tree().get_nodes_in_group("zombies"):
+			if z.has_method("stop_moving"):
+				z.stop_moving()
+		# 等待玩家按 R 重开
+		while true:
+			await get_tree().process_frame
+			if Input.is_key_pressed(KEY_R):
+				get_tree().reload_current_scene()
+				return
+	else:
+		# 没有结束面板就直接等 0.6 秒重开
+		await get_tree().create_timer(0.6).timeout
+		get_tree().reload_current_scene()

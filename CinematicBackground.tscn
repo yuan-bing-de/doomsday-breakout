@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://art/background_driver_mp5_lamp.png" id="1_background"]
+[ext_resource type="Script" path="res://background_lamp.gd" id="2_lamp"]
+
+[node name="CinematicBackground" type="Node2D"]
+scale = Vector2(0.75, 0.75)
+script = ExtResource("2_lamp")
+
+[node name="Backdrop" type="Sprite2D" parent="."]
+texture = ExtResource("1_background")
+centered = false
+texture_filter = 1
+z_index = -5

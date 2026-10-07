@@ -1,0 +1,50 @@
+﻿Godot Engine v4.7.1.stable.official.a13da4feb - https://godotengine.org
+
+===== BOSS 移动动作与特殊技能验证 =====
+[A] catalog 数据完整性
+  [PASS] catalog.brute 有 motion 表
+  [PASS] catalog.brute 有副技能类型
+  [PASS] catalog.brute 副技能冷却>0
+  [PASS] catalog.brute 副技能伤害>=0
+  [PASS] catalog.hulk 有 motion 表
+  [PASS] catalog.hulk 有副技能类型
+  [PASS] catalog.hulk 副技能冷却>0
+  [PASS] catalog.hulk 副技能伤害>=0
+  [PASS] catalog.reaper 有 motion 表
+  [PASS] catalog.reaper 有副技能类型
+  [PASS] catalog.reaper 副技能冷却>0
+  [PASS] catalog.reaper 副技能伤害>=0
+  [PASS] brute 主技能=charge
+  [PASS] hulk 主技能=slam
+  [PASS] reaper 主技能=summon
+  [PASS] brute 副技能=roar
+  [PASS] hulk 副技能=rock
+  [PASS] reaper 副技能=wave
+[B] boss_motion 动作层
+  [PASS] heavy 走路起伏幅度合理(≤10px)
+  [PASS] heavy 走路倾角合理(≤0.2rad)
+  [PASS] 站立后起伏收敛(≤2px)
+  [PASS] float 漂浮有浮沉(>3px)
+  [PASS] slam_impact 落地压扁(scale.y<1)
+[C] 主技能
+  [PASS] 冲锋命中玩家 25 伤害
+  [PASS] 冲锋结束后技能释放
+  [PASS] 震地命中玩家 30 伤害
+  [PASS] 震地结束后技能释放
+  [PASS] 召唤信号发出 3 只
+[D] 副技能
+  [PASS] 怒吼伤害玩家 12
+  [PASS] 怒吼推开小怪
+  [PASS] 投石爆炸伤害玩家 20
+  [PASS] 斩波命中玩家 30 伤害
+===== 结果：通过 32 项，失败 0 项 =====
+Godot_v4.7.1-stable_win64_console.exe : WARNING: 1 RID of type "CanvasItem" was leaked.
+所在位置 行:1 字符: 45
++ ... y_run.log"; & "D:\Godot\Godot_v4.7.1-stable_win64_console.exe" --head ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: 1 RID ...em" was leaked.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2733)
+WARNING: 1 ObjectDB instance was leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)

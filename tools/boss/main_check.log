@@ -1,0 +1,12 @@
+﻿Godot Engine v4.7.1.stable.official.a13da4feb - https://godotengine.org
+
+Godot_v4.7.1-stable_win64_console.exe : SCRIPT ERROR: Compile Error: Identifier not found: GameState
+所在位置 行:1 字符: 45
++ ... check.log"; & "D:\Godot\Godot_v4.7.1-stable_win64_console.exe" --head ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (SCRIPT ERROR: C...ound: GameState:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: GDScript::reload (res://main.gd:115)
+ERROR: Failed to load script "res://main.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)

@@ -1,0 +1,23 @@
+# 司机持枪正侧面图
+
+使用内置 image_gen 编辑已确认的司机侧面姿势，并参考游戏内原始武器贴图：
+
+- driver_pistol_m1911.png：M1911 手枪，原始贴图 art/weapons/pistol_m1911.png。
+- driver_mg_m249.png：M249 班用机枪，原始贴图 art/weapons/mg_m249.png。
+
+两张 PNG 均保留透明背景；新增持枪版本，保留之前空手姿势源图。本次输出为持枪美术素材，尚未修改游戏内人物贴图选择代码。
+
+武器根据原贴图通过图像生成工具合成，保留型号和主要外观特征，并调整握持处的手指遮挡；并非原武器像素未经修改的机械叠贴。人物位置和尺寸可能有轻微生成偏移，接入游戏时需校准脚底及枪口位置。
+
+## 最终提示词
+
+### driver_pistol_m1911
+
+Use case: compositing. Edit image 1, the exact existing orange-jacket DRIVER side sprite, by adding the weapon in image 2 into his hands. Image 1 is the edit target; image 2 is the game's actual weapon artwork and MUST be used as the weapon design reference, retain its recognizable silhouette, proportions, material, color, markings and components, not a generic substitute. Keep the man in EXACT 90-degree right-facing side profile, with unchanged face, hair, backpack, orange jacket, trousers, boots, legs, stance, pixel-painted style and body proportions. Only edit the local hand/finger contact area as needed for correct grip. Photoreal weapon reference should fit the existing detailed game illustration shading while preserving the design. No muzzle flash, no bullets, no firing effects, no scene, no lettering or labels. Transparent RGBA background. One single full-body armed character. Expand the canvas ONLY to the RIGHT as needed to fit the entire weapon, final square 1536x1536 canvas with original man full-height same scale and position (head near y75, feet near y1460, torso x420); do not cut barrel, backpack, fingers or boots. Empty margins truly transparent.
+Add exactly ONE M1911 handgun. Preserve image2's dark gunmetal slide with distinctive white five-point star markings and brushed silver worn horizontal stripes, black textured grip, ring hammer, iron sights. Side view of gun, barrel horizontal pointing RIGHT. Natural handgun length about 210-240 pixels relative to man's approximately 1400-pixel height. Position gun GRIP INSIDE the existing overlapped two-hand grasp (hands around x825,y360), slide ABOVE the hands and muzzle extending to their RIGHT. The index finger is in trigger guard, supporting fingers wrap around the gripping hand and cover most of black grip. Keep the original TWO EXTENDED ARMS and hands meeting at one grip point. No floating gun, no hand covering slide or muzzle, no extra hand, no duplicate weapon.
+
+### driver_mg_m249
+
+Use case: compositing. Edit image 1, the exact existing orange-jacket DRIVER side sprite, by adding the weapon in image 2 into his hands. Image 1 is the edit target; image 2 is the game's actual weapon artwork and MUST be used as the weapon design reference, retain its recognizable silhouette, proportions, material, color, markings and components, not a generic substitute. Keep the man in EXACT 90-degree right-facing side profile, with unchanged face, hair, backpack, orange jacket, trousers, boots, legs, stance, pixel-painted style and body proportions. Only edit the local hand/finger contact area as needed for correct grip. Photoreal weapon reference should fit the existing detailed game illustration shading while preserving the design. No muzzle flash, no bullets, no firing effects, no scene, no lettering or labels. Transparent RGBA background. One single full-body armed character. Expand the canvas ONLY to the RIGHT as needed to fit the entire weapon, final square 1536x1536 canvas with original man full-height same scale and position (head near y75, feet near y1460, torso x420); do not cut barrel, backpack, fingers or boots. Empty margins truly transparent.
+Add exactly ONE M249 machine gun from image2: black synthetic stock, worn gunmetal receiver, distinctive top carrying handle, perforated barrel shroud, front sight, long barrel and muzzle, bipod as depicted. Gun perfectly horizontal pointing RIGHT, side-on. Gun length around 760 pixels relative to 1400-pixel man, rear stock sits at his forward shoulder around x440 y300; rear grip is INSIDE rear curled shooting hand around x630 y385; support hand around x855 y360 wraps securely UNDER the forward HANDGUARD (never the bare hot barrel). The muzzle should extend to about x1200, so leave added transparent right margin. Adjust gun scale and translation and only small finger details to align the two actual grip/contact points. Trigger finger inside trigger guard; near fingers visibly overlay rear grip, support fingers curl over lower handguard edge. Preserve widely separated original arm pose. Receiver above hands; stock rests naturally into shoulder; bipod can extend below forward barrel as in the reference without crossing arms. No extra magazine box or sling absent from weapon reference, no floating gun, no palm hovering below weapon, no weapon protruding through hands.
+

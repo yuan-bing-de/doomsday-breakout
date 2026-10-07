@@ -1,0 +1,9 @@
+﻿Godot Engine v4.7.1.stable.official.a13da4feb - https://godotengine.org
+
+f0 pos=(1.666667, 300.3333) on_floor=false vel=(100.0, 20.0)
+f5 pos=(10.0, 307.0) on_floor=false vel=(100.0, 120.0)
+f10 pos=(18.33333, 322.0) on_floor=false vel=(100.0, 220.0)
+f15 pos=(26.66667, 345.3333) on_floor=false vel=(100.0, 320.0)
+f20 pos=(35.0, 377.0) on_floor=false vel=(100.0, 420.0)
+f25 pos=(43.33334, 417.0) on_floor=false vel=(100.0, 520.0)
+f29 pos=(50.00001, 439.9253) on_floor=true vel=(100.0, 0.0)

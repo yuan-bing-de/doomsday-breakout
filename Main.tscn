@@ -1,0 +1,119 @@
+[gd_scene format=3 uid="uid://6bpnnstcid24"]
+
+[ext_resource type="Script" uid="uid://b0m1lir4a8p6m" path="res://main.gd" id="1"]
+[ext_resource type="PackedScene" path="res://Player.tscn" id="2"]
+[ext_resource type="Texture2D" path="res://art/background_city.png" id="3"]
+[ext_resource type="Script" uid="uid://cwvrsrciawlqh" path="res://ground.gd" id="5"]
+
+[sub_resource type="LabelSettings" id="title_font"]
+font_size = 56
+font_color = Color(1, 0.15, 0.15, 1)
+outline_size = 4
+outline_color = Color(0, 0, 0, 0.8)
+
+[sub_resource type="LabelSettings" id="hint_font"]
+font_size = 28
+font_color = Color(1, 1, 1, 0.9)
+outline_size = 2
+outline_color = Color(0, 0, 0, 0.7)
+
+[node name="Main" type="Node2D" unique_id=1325493333]
+script = ExtResource("1")
+
+[node name="ParallaxBackground" type="ParallaxBackground" parent="."]
+layer = -10
+
+[node name="CityLayer" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_scale = Vector2(0, 0)
+
+[node name="Bg" type="Sprite2D" parent="ParallaxBackground/CityLayer" unique_id=44321173]
+z_index = -3
+texture = ExtResource("3")
+centered = false
+
+[node name="Ground" type="StaticBody2D" parent="." unique_id=427159063]
+script = ExtResource("5")
+
+[node name="Player" parent="." unique_id=1329695464 instance=ExtResource("2")]
+position = Vector2(200, 388)
+
+[node name="SpawnTimer" type="Timer" parent="." unique_id=407890792]
+wait_time = 2.0
+autostart = true
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1485560838]
+
+[node name="HealthBarBG" type="ColorRect" parent="UI" unique_id=888000001]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 220.0
+offset_bottom = 36.0
+color = Color(0.15, 0.15, 0.15, 0.8)
+
+[node name="HealthBarFG" type="ColorRect" parent="UI" unique_id=888000002]
+offset_left = 22.0
+offset_top = 18.0
+offset_right = 218.0
+offset_bottom = 34.0
+color = Color(0.85, 0.15, 0.15, 1)
+
+[node name="HealthLabel" type="Label" parent="UI" unique_id=743382546]
+offset_left = 230.0
+offset_top = 14.0
+offset_right = 340.0
+offset_bottom = 38.0
+text = "HP: 100"
+
+[node name="Label" type="Label" parent="UI" unique_id=1259759034]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -40.0
+offset_right = 1140.0
+text = "W 前进 | S 后退 | 空格跳跃 | J / 鼠标左键 射击 | Q 换枪 | G 手雷 | H 支援导弹"
+
+[node name="GameOverPanel" type="Control" parent="UI" unique_id=999000111]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Overlay" type="ColorRect" parent="UI/GameOverPanel" unique_id=999000112]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.72)
+
+[node name="Title" type="Label" parent="UI/GameOverPanel" unique_id=999000113]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -80.0
+offset_right = 200.0
+offset_bottom = -10.0
+text = "游 戏 结 束"
+label_settings = SubResource("title_font")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Hint" type="Label" parent="UI/GameOverPanel" unique_id=999000114]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = 20.0
+offset_right = 180.0
+offset_bottom = 60.0
+text = "按 R 键重新开始"
+label_settings = SubResource("hint_font")
+horizontal_alignment = 1
+vertical_alignment = 1

@@ -1,0 +1,376 @@
+extends CharacterBody2D
+
+# ============================================================================
+# player.gd 闁炽儲鏌￠埀?闁绘壕鏅涢宥囨喆閹烘洖顥忛柤瀛樼濠€浼存晬閸懣鈺呭礉閵婏絺鍋撴担鐣屽劜閻犲搫鍟ㄩ埀顑跨閻ㄧ娀宕欏Ч鍥ｅ亾娴ｇ瓔鏀ㄩ梺鎻掗獜缁?# ============================================================================
+# 闁圭鍊稿﹢?Player 闁革妇鍎ゅ▍娆撴晬閸︽槻aracterBody2D闁挎稑顦粭鍌炲Υ?# 闁绘壕鏅涢宥夊及椤栨ǚ鍋撳畝鈧晶鍧楁偠閸℃凹娼￠柤鐟扮湴閳ь剙绋勭槐婵嬫偨?move_and_slide() 濠㈣泛瀚幃濠勭矓鐠囨彃袟闁告粌鐭侀幆銈夊捶閼割兘鍋?#
+# 濞达絿濮甸崗鍌炲绩閸︻厽鐣遍柛锔惧閺岀喖鏁?#   - 缂佸顕ф慨鈺呮焻閻斿嘲顔?/ 閻犲搫鐤囩粚顒侇殗濡搫顔?   闁?闁?speed / jump_velocity 閻㈩垱鎮傞崳?#   - 閻熸瑦甯熸竟濠囧炊閸撗冾暬濠㈠爢鍐瘓           闁?闁?_ready() 闂佹彃鐬煎▓?120.0
+#   - 閻炴稈鍋撻梺鎻掔箲閺嗙喖宕?/ 闁告瑦銇炲┑鈧柟纰夌到椤﹁法浜? 闁?闁?health 闁告瑦锕㈤崳?闁?take_damage()
+#   - 閻忓繐瀚崵顕€姊婚幘顔筋吘 / 閻庢稒鍔曢懘濠冨閵堝拋鍞?    闁?闁?SHOOT_COOLDOWN 闁?bullet 闁?take_damage(1)
+# ============================================================================
+
+# ---- 闁糕晞娅ｉ、鍛矓鐠囨彃袟闁告瑥鍊归弳?----
+@export var speed := 240.0          # 鐎归潻绠戣ぐ鍝ョ矓鐠囨彃袟闂侇偆鍠庣€规娊鏁嶉崼婵嗗壖缂?缂佸甯槐姘跺Υ閸屾稑鍘掗悹鐑樺灥閹烩晠鎮欓悷鐗堢殤閻犲鍟妵?@export var acceleration := 1800.0  # 閻犙囨敱椤掔偤宕濋悩鐑╁亾閻斿嘲顔婇柨娑樼焸娴尖晠宕楀鍡楃樆闂佹鍠栭幃妤呮儔椤掑嫭锛熸繝濠冨灥閸ゎ參宕?@export var deceleration := 2200.0  # 闁哄绠栭弫顓㈠礆绾懏绨犻梺顐ゅ枎鐎规娊鏁嶅畝鍕級闁稿繐绉堕悰濠囨倿鐠鸿櫣鏆伴柡?@export var jump_velocity := -520.0 # 閻犲搫鐤囩粚顒勫礆濠靛鍋撻悢宄邦唺闁挎稑鐗愮粈瀣极?闁告碍鍨崇粭鍌炴晬婢跺牃鍋撻崒娑樺帓閻犻缚娅曞ú鎸庮殗濡儤鐨戦悹瀣暞濞茶法浜歌箛銉х闁哄洨顥愮粈瀣晬?const GRAVITY := 1200.0             # 闂佹彃绉存慨蹇涙晬鐏炲墽妲ㄩ悽顖嗗懐鑸跺☉鎾愁儓閹倝宕濋悩鐑╁亾閻旂补鍋撻崒婵埿ㄥ鍫嗗嫬绔寸€电増顨夌粔楦跨疀?
+@onready var sprite: Sprite2D = $Sprite2D   # 閻熸瑦甯熸竟濠勬嫻閺夋垶绂堥柤鍝勫€婚崑?@onready var weapon_sprite: Sprite2D = $WeaponSprite   # 闁归潧顑嗙€垫柨顫㈤敃鈧▍鎺旀嫻閺夋垶绂?const bullet_scene = preload("res://Bullet.tscn")  # 閻庢稒鍔曢懘濠囧捶閻戞ɑ鐝柨娑樼墦椤ｂ晠宕濋悩鐑樼グ闁?var facing := 1                     # 闁哄牊绻傞幃婊堟晬?=闁哄牊绻傝ぐ鎼佹晬?1=闁哄牊绻傛稊蹇涙晬閸垺鏆忓ù婊冮閻ㄧ娀宕欑紒妯荤厵闁告碍鍨甸幏鎵嫻閺夋垶绂堢紓鍫熸濞村棝鏁?var shoot_timer := 0.0              # 鐟滅増鎸告晶鐘诲礃瀹勬澘绁遍悹浣插墲濡炲倿宕?var aim_dir := Vector2.RIGHT        # 鐟滅増鎸告晶鐘绘儔閸曨偄娅欓柡鍌滄嚀閹?const HAND_OFFSET_RIGHT := Vector2(-16, 4)   # 闁告瑨娅曟晶婊堟儎缁嬫鍤犲ù婊冩唉椤鎳濋煫顓″幀闊洤鍟板▓鎴﹀磻韫囨泤鈺呮晬閸垺鏆伴梻鍫涘灩娑斿繑绗熻缁?const HAND_OFFSET_LEFT  := Vector2(16, 4)    # 闁哄牊绻傛稊蹇涘籍鐠鸿桨绠柟闈涱儏娴滃摜绮?var weapon_base_scale := Vector2(1, 1)      # 婵繐绠戝▍鎺楀储閻斿娼楃紓鍌楁櫆閺備線鏁嶉崼銏℃殢濞存粌楠告稊蹇涘矗瀹曞洨鍊抽弶鐑嗗墯濡炲倹绌卞┑鍫熸畬濠㈠爢鍐瘓闁?
+# 闂佹彃绉撮崺妤呭触鎼达絾鐣遍柛蹇ｅ幖閹洖銆掗崨濠傜亞闁告劕鎳撻～妤呮嚌閼艰泛鍨遍柛銉ゅ嫎閳ь剙鍊圭€垫粎鎲撮幒鏇烆棌闁搞儱鎼悾鐐媴鐠恒劍鏆忛柨娑樼焸娴尖晠宕楀鍛€奸柟骞垮灪椤掔喖宕抽妸锔筋槯闁搞儳鍋ら埀顑藉亾闁哄唲鍌涚溄闁绘せ鏂傞埀?const REMADE_SIDE_TEXTURES := {
+	"driver": "res://art/characters_v2/side/driver_mp5.png",
+	"doctor": "res://art/characters_v2/side/doctor_g17.png",
+	"police": "res://art/characters_v2/side/police_m1911.png",
+	"soldier": "res://art/characters_v2/side/soldier_m249.png",
+	"mechanic": "res://art/characters_v2/side/mechanic_ak47.png",
+	"programmer": "res://art/characters_v2/side/programmer_de.png",
+}
+
+# ---- 閻犙勫閻箖宕濋妸褎鏆伴柨娑樼墣閻墽鐥?B闁挎稒宀搁埀顒佸姇閹舵碍娼婚崼鐕佸妱闁?---
+# 閻犳劖娼欏ù姗€宕?art/walk/{閻熸瑦甯熸竟濡{婵繐绠戝▍鎷€_0..3.png闁? 閻㈩垎鍌滎伇濞戞搩浜滈幆濠囨偝椤栥倗绐?#   F0 闁规亽鍎磋闁挎稑鐗嗛幃妤呮嚈閼愁垰顔傞柛?/ 闁告挸绉烽崥娆撴儓閳ь剟宕风敮顔剧闁?F1 闁瑰箍鍨奸崥娆撴晬閸繃鍊甸柤闈涚仢婢х娀骞楅崱妯盒滈悹褎鐏氶埀顑挎祰闂娾晜鎷呴幘鏉懶滈悹褍鍤栫槐姘跺焼?F2 闁告瑥绉撮幃婊堝箳閵夈剱?闁?F3 闁告瑥绉撮幃婊堝箲閵忥絽鎮?# 閻㈩垎鍐╃闁哄嫷鍨辨俊鎼佸储閻旈攱绂堥柣銊ュ缁楀懘宕℃繝鍛寸叐闁稿鍝庨埀顒€鐭傞埀顒佸姌椤㈡垿寮弶鎴濆壖缂佽京濮崇紞鍛矓?+ 濞戞搩鍙€闁伴亶姊瑰鍐ㄥ壖闁靛棗绉堕弫鎾诲箣閹邦喗鐣遍柨?# 婵炲备鍓濆﹢渚€骞撻幒鎴斿亾缁楄　鍋撴担鍦⒕闁哄牆顦板Λ鍡樻姜椤掑﹦绀夐柛宥呯箳缁€宀€绱旈幋鐐靛閻庣懓鏈弳锝夋晬瀹€鍕垫闁哄秶鍘ч幏浼村储閻旈攱绂堥悗鐟拌嫰閸欏繑绋夐埀顒勬嚊濞ｎ兘鍋?const WALK_FRAME_COUNT := 4
+# 婵絽绻嬮柌婊呮喆閹烘洖顥忛柣銊ュ閳ь剙鏈鐐虹嵁閸涱偀鍋撳蹇曠閻犳劖娼欏ù?1216 濡ゅ倹顭囩紓澶愬绩閹冪厒 180 闁哄啫澧庡▓鎴炵▔閳ь剙顫㈤妷鈺傛瘣閹艰揪璁ｇ槐婵堜沪韫囨挾顔庨柛宥呯箳缁€宀勬晬?# 闁活潿鍔嶅鐢电不濡や緡鍔勫Λ鐗堝煀缁辨繄鎷嬮埡鍕闁告粌鑻﹢鎾閵忋垺鐣遍柣鈺冾焾椤曨噣鏌呴悢宄邦唺閻庣敻鈧稓鐟愰柨娑樺缁楀瀵煎顓炩叺婵?const STRIDE_PX := {
+	"driver": 61.3, "doctor": 24.0, "police": 38.2,
+	"soldier": 43.1, "mechanic": 0.0, "programmer": 0.0,
+}
+
+var walk_phase := 0.0          # 婵縿鍎扮槐锝夋儎闂€鎰Т闁?~TAU 閻犵儤鍨甸悾顒佺▔閳ь剚绋?4 閻㈩垎鍐╁剷闁绘粠鍨界槐婵喰掕箛姘《 閿?闁告鐤囬幆銈夋嚇濮橆偆顏辨繛鍡忔缁?var _ground_distance := 0.0    # 闁哄牜鍓氶鑲╃矓鐠囨彃袟闁革负鍔屽﹢鎾椤厾鐟愰柣顏嗗枑椤掓粎鎸ч幏宀€绠栭柣銊ュ缁愭稓绮嬫导娆戠闁活潿鍔岄悾鐘绘嚀鐏炶偐鐟濋柡鍕靛灠閻ｉ箖寮捄鐑樼彜闁规亽鍔忕换姗€宕濋妸褎鏆?var idle_time := 0.0           # 缂佹梹鐟ч悵娑㈠川閻撳孩鍎ч悹浣插墲濡?var walk_frames: Array[Texture2D] = []   # 鐟滅増鎸告晶鐘绘晬閸綆娼￠柤?婵繐绠戝▍鎺楁晬婢跺本鐣?4 鐎殿喚濮剧换鍕潰閵夈儲濮?var walk_frame_idx := -1                 # 鐟滅増鎸告晶鐘绘偨閵娧勭暠闁哄嫷鍨抽鍥礄閻樺弶濮庨柨?1 = 閺夆晜蓱閻ュ懐鎷嬮幑鎰畺闁?var stride_px := 60.0                    # 鐟滅増鎸告晶鐘垫喆閹烘洖顥忛柣銊ュ椤掔偤鐛崪鍐閻忕偛绻愮粻鐑藉磽韫囨洜顦遍柨娑橆檧缁辨繈鎮介妸銈囪壘缂佺姵顨嗛鐐达紣?var sprite_base_scale := Vector2.ONE  # 閻熸瑦甯熸竟濠勬嫻閺夋垶绂堥柣銊ュ濞蹭即寮介崶鈺冪礆闁衡偓閹惧懐绀?80px 濡ゅ倹锕槐姘舵晬鐏炶棄绔剧紓鍌楁櫆婵儤瀵奸梹鎰鞍閻庣懓鍟╃拹鐔煎春閸濆嫬娅?var squash := 0.0              # 鐟滅増鎸告晶鐘诲储鐎ｎ剛绱氶梺鎻掗獜缁?0 闁告ê顑嗘晶搴ㄦ晬?0 闁瑰嘲顦崙?var _dust_tex: Texture2D = null  # 闁规鍓欓惃鍦嫻閺夋垶绂堥柨娑樼墕瑜把囨偨閻旂鐏囧☉鎾亾婵炲棌妲勭槐婵囧緞瀹ュ洦鏆忛柨?
+# ---- 闁哄浜滆ぐ娑㈠磻韫囨泤鈺呮晬閸喎鐦婚悷娆愬笩婢瑰﹥绋夊鍛€遍柨娑樺缁姷鎷归弶鎴炵闁稿秴绻掔粈宀勫箥椤愶絽浼庣€电増顨呴崵顓㈡晬?80px 濡ゅ倹顭囩紓澶愬绩閹勫€甸柨?---
+# 婵絽绻嬮柌婊呮喆閹烘洖顥忛柟闀愮劍閻忔瑦瀵肩粙鍨瘔闂傗偓閸喖顔婂☉鎾崇Т閹捇鏁嶇仦鐣屾憤鐎?闁诲浚鍋勯崢婊勭鎼淬倗绠归梺鎻掕嫰閻ㄧ娀宕?const MUZZLE_OFFSETS := {
+	"mechanic":   Vector2(61, -41),
+	"driver":     Vector2(50, -37),
+	"doctor":     Vector2(37, -36),
+	"police":     Vector2(61, -44),
+	"soldier":    Vector2(59, -48),
+	"programmer": Vector2(45, -37),
+}
+
+# ---- 閻炴稈鍋撻梺鎻掔箳闁绱?----
+# 闁绘壕鏅涢?100 閻炴稈鍋撻柨娑樻湰閻︹€斥枎闄囬～锔界▔瑜嶅?闁肩鑻妵鏃堝箥閹惧啿鐓傞柟?5 闁绘劗娅㈢槐娆戞喆?take_damage闁?var health := 100
+var max_hp := 100
+var invuln := 0.0        # 闁哄啰濮甸弲顐﹀籍閸洘锛熼柨娑樼墢椤鏁嶆径鍫氬亾閸屾艾缍€濞寸鍊曢幃妤呮儗椤撶喐鐣柡鍐У閺咁偊鏁嶅畝鍕級闁稿繐绉崇粩瀵告暜瑜庢晶鎼佸礂?var dead := false        # 闁哄嫷鍨伴幆浣割啅閸欏鍔ュù婧炬缁辨瑥顫㈢拋鎶筋€楅柛姘娴犵姴顫㈤～顓狀伇闁告帒娲﹂幖閿嬫媴濠婃劗绀?
+# ----------------------------------------------------------------------------
+# _ready()闁挎稒淇洪～妤呮嚌闊厾顏遍弶鈺傜☉濠р偓闁圭瑳鍡╂斀濞戞挴鍋撴繛?# ----------------------------------------------------------------------------
+func _ready():
+	# 濞ｅ洦绻堝▍鎾绘晬濮樺崬顏紒鏂款儑濞堟垵顫㈤敃鈧▍?Sprite 闊洤鎳橀妴蹇擃潩濮濆瞼绠奸梻鍛姌濡矂鏁嶉崼锝庢健闁肩灏崚娑㈠炊妤ｅ啫娅＄€瑰憡褰冮幆鍫ュ几椤忓海绀?	if weapon_sprite != null:
+		weapon_sprite.visible = false
+		weapon_sprite.texture = null
+
+	# 闁告帗绻傞～鎰板礌閺嶎煈鍔呴柛锝冨妿闁绱掗悤鍌滅獥閻熶礁鎳庨ˇ顒€顕ｉ埀顒備沪閳ь剛鎸ч悩鐑╁亾娴ｇ儤鐣?M1911
+	Weapons.equip("pistol_m1911")
+	Weapons.weapon_changed.connect(_on_weapon_changed)
+
+	# 闁圭顧€缁辨瑧鎲撮幒鏇烆棌, 婵繐绠戝▍鎺楁晬婢跺瞼鐭嬮柛姘墕婵偞娼崐鐔峰灡闁搞儲鎷濈槐鍗炩柦閳╁啯绠掔紓浣稿閹酣宕堕悙顒侇槯闁搞儳鍋ら埀顑藉亾闁告帗濯介～妤呮嚌?v3 闁?	_refresh_character_texture()
+	update_hud()   # 闁告帡鏀遍弻濠勬偘閳ь剟寮堕埄鍐┾枖缂佲偓?	_update_weapon_visual()
+
+# ----------------------------------------------------------------------------
+# _physics_process()闁挎稒姘ㄦ晶鍧楁偠閸℃濮庣€甸偊浜為獮鍡涙晬閸垹顔婃慨锝呯箳椤?60 婵炲棌妲勭槐姘舵晬鐏炴儳顣查柡鍫濐槺浜涢柛鏂诲姂閳ь剚妲掔欢顐﹀礃濞嗘帞绠归梺?# ----------------------------------------------------------------------------
+func _physics_process(delta):
+	if dead:
+		return   # 婵繆顔婄花锛勪焊閸欐鐭嗗☉鏂跨墦閸忔ɑ绋夊鍛驳
+
+	# 闁哄啰濮甸弲顐﹀籍閸洘锛熼柛濠冨笩椤撴悂寮?	if invuln > 0:
+		invuln -= delta
+
+	# ---- 闂佹彃绉存慨蹇旂▔鎼淬倖鍎伴柛?----
+	if not is_on_floor():
+		velocity.y += GRAVITY * delta   # 濞戞挸绉村﹢顏堝捶娴煎瓨妗?闁?闁告瑦顨婇崳鎼佸礉濞戞鐟撻柦鈧?	else:
+		if velocity.y > 0:
+			velocity.y = 0              # 闁解偓閽樺鍕鹃柛姘娴犵姴顫㈤～顓犵憮闁解偓?
+	# ---- 鐎归潻绠戣ぐ鍝ョ矓鐠囨彃袟 ----
+	var dir := 0
+	if Input.is_action_pressed("move_forward"):   # 濮掓稒顭堥?W 闂?/ 闁告瑦濞婇弫?		dir += 1
+	if Input.is_action_pressed("move_backward"):  # 濮掓稒顭堥?S 闂?/ 鐎归潻绠撻弫?		dir -= 1
+	# 闂侇偆鍠庣€规娊鐛搹顐ゆ嫧闁革附濯介幏鐑藉触閹寸姵绐楅柡宥呮喘閳ь剛鍠庣€规娊鏁嶅☉妤佺溄闁绘せ鏅為幑锝咁潰閵夛絺鍋撴担闀愮不婵縿鍎扮粭宀勬焻閹邦剚濮庢慨婵勫劜閳ь兛妞掔槐鐗堢┍濠靛洤鐦☉鎾亾闁奸攱鐣埀?	var target_speed := dir * speed
+	var rate := acceleration if dir != 0 else deceleration
+	velocity.x = move_toward(velocity.x, target_speed, rate * delta)
+	if dir != 0:
+		facing = dir                  # 閻犱焦婢樼紞宥夊嫉濠靛棙鍊?		sprite.flip_h = dir < 0       # 闁哄牊绻傛稊蹇曚焊鏉堛劍瀵滄鐐茬－閻愭洘娼鍐ㄥ灡闁?
+	# ---- 閻犲搫鐤囩粚?----
+	if Input.is_action_just_pressed("jump") and is_on_floor():   # 濮掓稒顭堥鑽ょ矚閻戞澹愰柨娑樺缁楁牞绠涢崨娣偓蹇涘捶閵娿儲鍕鹃梻?		velocity.y = jump_velocity
+		squash = -0.12   # 閻犙呮焿閻戯箓鎯夐鍕紵缂侀箖娼ч幃婊堝箯婢跺鍤戦柨?0 = 闁瑰嘲顦甸弳閬嶆晬?
+	# 闁圭瑳鍡╂斀缂佸顕ф慨鈺呮晬閸︽槻aracterBody2D 闁汇劌瀚悥锝夊礄閸℃鈺呭礉閵娿儱姣愰柡浣稿簻缁?	var was_air := not is_on_floor()
+	var previous_x := global_position.x
+	move_and_slide()
+	# 闁告瑯浜ｉ鍥亹閺囩媭娼鹃柟鍓у仧闁绱掗悢椋庢澖闂傚嫬鎳庨崢鎴犳媼閸濄儲鐣遍柛锔垮嵆濞肩増鎷呭鍥嗏晠鏁嶅顓熷闁告帊鍗冲▓鎵枈瀹ュ洤鈷栭柡鍐啇缁辨繃绂嶉搹鐟扳挅濞戞挸绉崇槐浼村储閻旈攱鍕鹃棅顏勭箲椤掔偤濡?	_ground_distance = absf(global_position.x - previous_x) if is_on_floor() else 0.0
+	if was_air and is_on_floor():
+		squash = 0.16    # 闁解偓閽樺鍕鹃柣顒夊墴濡法鐥棃娑欏€婚柛妯侯儐婢?
+	# ---- 閻犙勫閻?缂佹梹鐟ч悵娑㈠礉閵娧勬毎闁挎稑鐗呯粭鍌涚▔鐎ｎ厽宕冲ù?+ 闁规鍓欓惃?+ 闁告ê顑囩紓澶愬箯婢跺鍤戦柨?---
+	_update_walk_animation(delta, _ground_distance)
+
+	# ---- 閻犱緤绱曢悾濠氭儔閸曨偄娅欓柡鍌滄嚀閹粓鏁嶉崼婵愭綏缂備礁鐗婄€垫岸宕ラ幋鐐翠粯閺夆晜鍨抽幎姘变焊闂堚晝绀?---
+	_update_aim()
+
+	# ---- 闁哄洤鐡ㄩ弻濠傤潰閿曗偓濞呮帞鎲撮崱姘兼綍濞达絽绉堕悿鍡樼▔鎼淬値娼￠幖?----
+	_update_weapon_aim()
+
+	# ---- 閻忓繐瀚崵?----
+	shoot_timer -= delta
+	# 闁?濮捬呭У閻栵絽顔忛敃鍌涙殯鐎殿喒鍋撻柣蹇ｅ亜婢х娀宕楅崼銏＄畽闁圭娲幏锟犲及椤栨碍鍎婇柟顕呭墮濠€?UI 闁硅矇鍌涱偨濞戞挸顭槐娆撳箰婢舵劖灏?闂傚牄鍨哄妯肩驳婢舵稓绀嗛柕?	#   Input.is_mouse_button_pressed() 闁哄嫷鍨甸悿鍡欐嫚閵忕姴鏂у┑顔碱儔缁卞爼寮介崶鈺佇﹂柟顑跨筏缁辨繃绋夊鍥╃梾閺?GUI 濞存粌顑勫▎銏㈠寲閼姐倗鍩犻柨?	#   闁绘劕绠嶉埀顒€鐭佽ぐ宥夊础?闁哥喎妫楃花?閻犱礁澧介悿鍡涘Υ瀹ュ棗鐦婚梺绛嬪枤濞堟垿鏌囬敐鍕伇濞戞挸顑嗙€垫粍绋夌€ｂ晝绐楅悶姘煎亯椤曘倛銇愰幘鏉戠亣鐎殿喒鍋撻柣?闁?闁绘劗顢婅ぐ宥夊础閺囩偞鐨戠€殿喒鍋撻柡瀣典簵閳?	#   闁诡噮鍓欏﹢?UI 濞戞挸锕ュ鍌滅矉娴ｈ鍓惧褏濮甸悥锝咁嚕閳ь剟鎮橀顒傚耿闂佹鍠氬ú?J闁挎稑婢僪oot 闁告柣鍔嬬紞鏃堟晬婢跺鐟濋柛娆愵殔婵傛牠宕鍐ｅ亾?	var over_ui: bool = get_viewport().gui_get_hovered_control() != null
+	if shoot_timer <= 0 and (Input.is_action_pressed("shoot") or (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not over_ui)):
+		shoot()
+
+# ----------------------------------------------------------------------------
+# _update_walk_animation()闁挎稒淇洪摂瀣崉?缂佹梹鐟ч悵娑㈡儍閸曨厸鏌ら幖鏉戠箰鐎垫煡宕濋妸褎鏆伴柨娑樼墔缁楀骞戦姀锝呭灡闁搞儲鎷濈槐?#   鐠?閻犙勫閻箖鏁嶅鎶界叐濞达絾鎸荤€垫粌顫㈤敐鍛存诞闁哄洩灏欓崵搴㈢▔婵犱胶鐟撻悹褑娓圭槐锟犳晬鐏炲墽妲ㄩ悹褔顣︾粩鏉戔枔娴ｅ啰鐛╃紒鍌濐嚙濠€顏堟嚇濮橆剛淇洪柟娈垮墲閹癸絿浜稿Ο鐑樺焸
+#   鐠?缂佹梹鐟ч悵娑㈡晬濮橆厾鈧剚娼拠韫俺闁汇劌瀚幊鐘诲触濮濆本宕冲ù?#   鐠?閻犙呮焿閻?闁解偓閽樺鍕鹃柨娑欑閺嗭絾鎷呴幘鍐茬缂傚倵鏅滄刊鐑樺闂堚晝绀剆quash & stretch闁?# ----------------------------------------------------------------------------
+func _update_walk_animation(delta, moved_distance := 0.0):
+	if sprite == null:
+		return
+
+	var moving := moved_distance > 0.01 and is_on_floor()
+
+	if moving:
+		# 濞戞挴鍋撻柡浣虹節闁叉粌顕ラ鍡楃畾闁哄牆顦稊蹇涘矗閸忓懓鈷堟慨婵勫劘閳ь剙鍊诲ù澶嬫媴瀹ュ洦鏆犻悗鍦仱濡绢垳鎸ч幏宀€绠栭柣銊ュ閸庢氨妲愰悩铏闁规亽鍔忕换姗€鏁?		# 闁圭鍋撳ù鐘劜濡倗鎷嬮崫鍕闁绘粌娲㈤埀顑跨婵偤鏌呴悢宄邦唺闁瑰瓨鐗滈～顐﹀箻閻愬樊娲ゅù锝嗘礀瑜板宕犻弽鐢电闁煎瓨纰嶉鐐烘焾閹存帞鐟濆ù鍏间亢閸旀氨绮嬬拋宕囩Т缂佸妲掓俊顓熺附韫囧鍋?		var prev_phase := walk_phase
+		var cycle_distance := maxf(1.0, 2.0 * stride_px)
+		walk_phase = fmod(walk_phase + moved_distance / cycle_distance * TAU, TAU)
+		# 闂侇偅鍔曢幎姘跺箲閵忥絽鍨遍柛銉︽嫕缁? 閻㈩垎鍐╃秵闁告帒妫旂粩瀛樼▔椤忓嫭鍎曢柣?		_apply_walk_frame(int(walk_phase / (TAU / WALK_FRAME_COUNT)) % WALK_FRAME_COUNT)
+		# 閻犳劖娼欏ù妯荤┍濠靛洤鐦☉鎾虫捣椤偊骞橀悙鎵Ъ闁告艾濂旂粩鏉戭潩閺夋垿鎸梺鎸庢皑閸嬶綁鏁嶇仦鑲╃憹闁煎厖绮欓·鍌涘緞閺嵮傜闁告瑨娅曠槐鎾剁矓娴兼瑧绀夐柛姘剧畱閸垱瀵煎顓熲枖鐎电増顨夐崜濂稿捶閵婏妇鎷ㄩ柕?		sprite.position.x = lerpf(sprite.position.x, 0.0, 0.35)
+		sprite.position.y = lerpf(sprite.position.y, 0.0, 0.4)
+
+		# 闁煎瓨纰嶉鐐哄箥椤掆偓閻ㄥ綊鏁嶅杈ㄧゲ濞达絽绉甸惁锛勬崉閵娿劎绠?閿?闁汇劌瀚弳锝夊极閺夊簱鍋?= 闁煎瓨淇洪幆銈夊捶閹殿喚浠滈梻鍌濇彧缁辨0 / F2 闂侇喛濮ゅΣ鎼佹媰閸婄喎澹栭悽顖嗗秶绀?		if int(walk_phase / PI) != int(prev_phase / PI):
+			_spawn_footstep_dust()
+	else:
+		# 缂佹梹鐟ч悵?婵犲﹦鍋熼埞鏍晬濮橆兛绮婚柛锔哄妽鐢鎲撮敃鈧幎姘舵晬瀹€鍐ф唉鐎甸偊鍠栭幊鐘诲触?		idle_time += delta
+		_apply_walk_frame(0)
+		sprite.position.y = lerpf(sprite.position.y, sin(idle_time * 2.2) * 0.9, 0.15)
+		sprite.position.x = lerpf(sprite.position.x, 0.0, 0.2)
+
+	# 闁告ê顑囩紓澶愬箯婢跺鍤戦柨娑欏哺閳ь剚鍔曢幎姘辨偘閺夊灝娅ら柛?0
+	squash = lerpf(squash, 0.0, 0.18)
+	if sprite_base_scale != Vector2.ZERO:
+		sprite.scale = Vector2(
+			sprite_base_scale.x * (1.0 - squash),
+			sprite_base_scale.y * (1.0 + squash)
+		)
+
+# ----------------------------------------------------------------------------
+# _apply_walk_frame()闁挎稒鑹鹃崹蹇涘箲閵忕姴鐓傜紒?idx 鐎殿喚濮剧换鍕潰閵夈儲濮庨柨娑樻綗dx 濞戞挸绉磋ぐ澶屼焊閸欐鐟濋柛鏃戠厜缁辨繈鎯囨担鍝ョ；闂佸簱鍋撻柨?# ----------------------------------------------------------------------------
+func _apply_walk_frame(idx: int):
+	if walk_frames.size() != WALK_FRAME_COUNT:
+		return                      # 婵炲矉绱曢弫鎾诲箣閹邦垳绠栭弶鈺傜懃椤ㄦ粎鏁缁辨繃绌卞┑鍥х槷闁告鍠曢崚娑㈠炊?	if idx == walk_frame_idx:
+		return
+	walk_frame_idx = idx
+	sprite.texture = walk_frames[idx]
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+# ----------------------------------------------------------------------------
+# _spawn_footstep_dust()闁挎稒淇洪崜鍏兼償閺囩喎顥堥悹褑娓圭粩瀵镐焊韫囨梹灏﹂悘蹇斆﹢?# ----------------------------------------------------------------------------
+func _spawn_footstep_dust():
+	if get_parent() == null:
+		return
+	var d := Sprite2D.new()
+	d.texture = _footstep_dust_texture()
+	d.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# 闁解偓閸婄喎澹栭柣鎰缁辨壆鎲撮幒鏇烆棌濞戞搩鍘肩缓鎯ь嚗閳ь剚绋夌€ｎ剙顔婂☉鎾亾濞戞搩浜滃畷鎰扮叕椤愵剛绀勯柤瀛樿壘缁ㄦ娊姊介崟顔剧闁挎稑顧€缁辨繈宕烽妸锔界瘋闁告碍鍨靛鑺ョ瑹瑜忛埣銏㈢矙瀹ュ懍鐒婇柛?	d.global_position = global_position + Vector2(-facing * randf_range(0.0, 8.0), 86.0)
+	d.z_index = -1
+	var sc := randf_range(0.45, 0.75)
+	d.scale = Vector2(sc, sc)
+	d.modulate.a = randf_range(0.55, 0.85)
+	get_parent().add_child(d)
+
+	var tw := get_tree().create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(d, "position:y", d.position.y - 12.0, 0.36)
+	tw.tween_property(d, "position:x", d.position.x - facing * 10.0, 0.36)
+	tw.tween_property(d, "modulate:a", 0.0, 0.36)
+	tw.chain().tween_callback(d.queue_free)
+
+# 闁汇垻鍠愰崹姘▔閳ь剙顕ｉ悩鑼瘓闁革箑妫楅懜鎵焊濡儤鍩傞悹鎰綑濞存﹢鏁嶉崼婵嗘锭闁稿鐭粩鏉戔枎閳藉懐绀夊☉鏂款儏閹鏌屽鍜佹Щ濞达綀娉曢弫銈夋晬?func _footstep_dust_texture() -> Texture2D:
+	if _dust_tex != null:
+		return _dust_tex
+	var sz := 14
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := (sz - 1) / 2.0
+	for y in range(sz):
+		for x in range(sz):
+			var dd := Vector2(x - c, y - c).length()
+			if dd < 6.0:
+				var a := clampf(1.0 - dd / 6.0, 0.0, 1.0)
+				img.set_pixel(x, y, Color(0.70, 0.66, 0.58, a))
+	_dust_tex = ImageTexture.create_from_image(img)
+	return _dust_tex
+
+# ----------------------------------------------------------------------------
+# shoot()闁挎稒鑹捐ぐ鍌滀焊閸曨偆鎽嶇€?# ----------------------------------------------------------------------------
+func shoot():
+	var wp := Weapons.get_current()
+	shoot_timer = 1.0 / wp.fire_rate   # 闁圭顦伴鐔煎闯閵娿儳娈搁梺顐ゅ枎閸犲懐鈧鑹鹃崰搴ㄥ础?	var b := bullet_scene.instantiate()
+
+	# 閻庢稒鍔曢懘濠冪鎼淬垻浠氶柛娆欑到閻ㄧ娀宕欓悮瀵哥獥闁圭顦抽～妤呮嚌閸欏鍙€閻炴稏鍔忛獮蹇涘矗閺嶃劎浠氶柛娆欑到娴滃摜绮旀导娆戠180px 濡ゅ倹顭囩紓澶愬绩閹勫€甸柨?	# 闁哄牊绻傞幃婊呯礄閺勫繑绁柨娑樻緝prite.flip_h=true闁挎稑顦板鍌炴晬濮?闁告瑦鐗炵粈瀣晬鐎?濞戞挸绉磋ぐ?	var muzzle_base: Vector2 = MUZZLE_OFFSETS.get(GameState.selected_character, Vector2(50, -40))
+	var muzzle_x := muzzle_base.x if facing > 0 else -muzzle_base.x
+	var muzzle_y := muzzle_base.y
+	var muzzle_pos := global_position + Vector2(muzzle_x, muzzle_y)
+	b.global_position = muzzle_pos
+	b.direction = aim_dir
+	b.damage = wp.damage
+	b.owner_node = self          # 闁告稑锕ㄩ惁鏃傗偓娑欏姇閼村﹪濡寸仦鎯х亯闁哄嫷鍨拌ぐ鍌滀焊閸曨喒鍋撻崨顐熷亾瀹ュ繒绀夐梺顒€鐏濋崢銈夊箥閹惧啿鐓傞柤濂変簻缁?	b.bullet_size = wp.get("bullet_size", 1.0)        # 閻庢稒鍔曢懘濠冨緞瑜嶉惃顒勬晬閸繃瀚查柡瀣典簼椤偊宕ｉ敐鍛獮闁瑰瓨鍔栭惁顔界瑹鐎ｅ墎绀?	b.bullet_tracer = wp.get("bullet_tracer", false)  # 闁哄牏鍎ら悘娆撳嫉婢跺鏄ラ柛?	get_parent().add_child(b)
+
+	# 闁哄浜滆ぐ娑㈡倶椤愩垹甯?	_spawn_muzzle_flash(muzzle_pos, wp.get("bullet_size", 1.0))
+
+	# 閻忓繐瀚崵顕€宕ユ惔鈩冪稄闁告梹鍐荤槐鏉款潰閿曗偓濞呮帗娼拠韫俺闁告艾娴蜂簺
+	if weapon_sprite != null:
+		weapon_sprite.position -= aim_dir * 1.5
+	if has_node("/root/AudioManager"):
+		AudioManager.play_sfx("shoot")
+
+# ----------------------------------------------------------------------------
+# _spawn_muzzle_flash()闁挎稒鑹惧﹢顏堝几椤忓嫬缍撳ù锝呯Ф閻ゅ棝鎮介悢绋跨亣闁活収鍘藉▓蹇涙倶椤愩垹甯ㄩ柡浣哥墛閻?# ----------------------------------------------------------------------------
+func _spawn_muzzle_flash(pos: Vector2, wp_size: float):
+	var flash := Sprite2D.new()
+	flash.name = "MuzzleFlash"
+	flash.z_index = 5   # 闁烩晜鐗曞﹢顏嗘喆閹烘洖顥忓☉鏂款儎缁?
+	# 闁汇垼顔婄粩瀛樼▔椤忓懏袝鐟滆埇鍨绘导鈧柛蹇擃槼閸掓盯宕堕幘鍛濞戞搩鍘肩缓楣冩儌娴犲鐭?闁?濠㈣埖鐗曞﹢鈧慨妤佺懅鐎?闁?闁告ぞ绀侀悺褏浜搁崟顓炴疇闁?	var sz := 20
+	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := sz / 2
+	for y in range(sz):
+		for x in range(sz):
+			var dx := x - c
+			var dy := y - c
+			var dist := sqrt(dx * dx + dy * dy)
+			if dist < 2:
+				img.set_pixel(x, y, Color(1, 1, 0.85, 1))         # 闁谎傜矙缁秹寮界粙璺ㄥ
+			elif dist < 4:
+				img.set_pixel(x, y, Color(1, 0.8, 0.2, 0.95))     # 濮掓稑瀚竟?			elif dist < 6:
+				img.set_pixel(x, y, Color(1, 0.45, 0.1, 0.7))     # 婵鐟ㄦ竟?			elif (abs(dx) <= 1 and abs(dy) < 9) or (abs(dy) <= 1 and abs(dx) < 9):
+				img.set_pixel(x, y, Color(1, 0.5, 0.1, 0.35))     # 闁告ぞ绀侀悺褏浜搁崟顓炴疇
+
+	flash.texture = ImageTexture.create_from_image(img)
+	flash.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	flash.global_position = pos
+	flash.rotation = aim_dir.angle()           # 闁哄啫顑堝ù鍡欌偓闈涚秺缂嶅牏浜搁崟顐㈡瘖闁哄倻鎳撻幃?	var sc := 0.8 + wp_size * 0.5              # 濠㈠爢鍐ㄧ稉鐎垫澘瀚鐔煎闯閵娧傜磻闁稿繐顦板ú鎸庡緞?	flash.scale = Vector2(sc, sc)
+	get_parent().add_child(flash)
+
+	# 闁告柣鍔庨弫楣冩晬濮橆剚褰ラ梺顐ゅ枑閺備焦寰?+ 婵烇絺鈧啿姣夐柨?.08 缂佸甯掗幃妤呭礆閻樼粯鐝?	var tw := create_tween()
+	tw.tween_property(flash, "scale", Vector2(sc * 1.6, sc * 1.6), 0.03)
+	tw.parallel().tween_property(flash, "modulate:a", 0.0, 0.08)
+	tw.tween_callback(flash.queue_free)
+
+func _update_aim():
+	# 闁煎浜滄慨鈺呮儔閸曨偄娅欓柨娑欒壘瑜把囧捶閵婏妇浠氶柛娆欑稻濠€鐐哄触閹搭垳绀刦acing闁挎稑顦甸崑鍛▔閳ь剚绗熻婢规﹢寮甸埀顒佹交閹存粍濮庨悘?	# 闁哄牊绻傝ぐ?facing=1)闁哄啳娉涜ぐ褔鎯夐崟顐㈢閺夊牆婀卞▓鎴炵▔瑜嶅鍫ユ晬鐏炵偓绡傜€?facing=-1)闁哄啳娉涜ぐ褔鎯夐崟顐＄閺夊牆婀卞▓鎴炵▔瑜嶅?	# 闁哄牊绻傞幃婊堝棘閻熺増鍊绘繛灞稿墲濠€浣圭▔瑜嶅鍫ュ籍鐠佸湱绀夊ǎ鍥ㄧ箖鐎垫柨顫濋弶鎴︽尙闁哄牊绻傛晶鐘典焊閸曨偄姣?	aim_dir = Vector2(facing, 0)
+	var zombies := get_tree().get_nodes_in_group("zombies")
+	var nearest = null
+	var nearest_dist := INF
+	for z in zombies:
+		# 闁哄倻鎳撻幃婊勬交閸ャ劍濮㈤柨娑欒壘瑜把囧嫉婢跺濮庨悘蹇曨焾濠€?facing 闁哄倻鎳撻幃婊勭▔婵犲繒绀勯棅顒夊亜婢х娀鏁嶆径瀣枀闁告瑥鍊风粭宀勬儔閸曨偄娅?		var offset_x: float = z.global_position.x - global_position.x
+		if offset_x * facing <= 0:
+			continue   # 濞戞挆鍐╊攳闁革负鍔忛棅鈺呭触鎼淬垹鐏楁慨婵撶导缁楀倿寮惂鍝ョ閻犲搫鐤囩换?		var d := global_position.distance_to(z.global_position)
+		if d < nearest_dist:
+			nearest_dist = d
+			nearest = z
+	if nearest != null:
+		aim_dir = (nearest.global_position - global_position).normalized()
+
+func _update_weapon_aim():
+	if weapon_sprite == null:
+		return
+	var angle := aim_dir.angle()
+	weapon_sprite.rotation = angle
+	if aim_dir.x >= 0:
+		weapon_sprite.position = HAND_OFFSET_RIGHT
+		weapon_sprite.scale = Vector2(weapon_base_scale.x, weapon_base_scale.y)
+	else:
+		weapon_sprite.position = HAND_OFFSET_LEFT
+		weapon_sprite.scale = Vector2(weapon_base_scale.x, -weapon_base_scale.y)
+
+func _input(event):
+	# 闁轰焦婢橀悺褔鏌?1~6 閻熶礁鎳庨ˇ顒傗偓鐢垫嚀缁ㄦ彃顫㈤敃鈧▍?	if event is InputEventKey and event.pressed and not event.echo:
+		var keys := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6]
+		for i in range(keys.size()):
+			if event.keycode == keys[i]:
+				var id: String = Weapons.ORDER[i]
+				if Weapons.is_unlocked(id):
+					Weapons.equip(id)
+				else:
+					print("婵繐绠戝▍鎺楀嫉椤忓泦鎺楁煥? %s (闂傚洠鍋撻悷?%d 闂佸弶鍨电粩?" % [Weapons.DATA[id].name, Weapons.DATA[id].price])
+
+func _on_weapon_changed(id: String):
+	_update_weapon_visual()
+
+func _update_weapon_visual():
+	# 閻熸瑦甯熸竟濠勬嫻閺夋垶绂堥柨娑樼墦閸ｅ摜绱掑Ο鐓庮暭闁挎稑顦版晶婊堟煂鐏炶棄鍤掔紓浣哥箲濠€渚€寮搁搴ｇ闁圭鍋撳ù鐘劙缁楀宕樺鍛秾闁告梻濮风€氼厾绮╃€ｎ剚鐣辨慨婵撶畱濞?Sprite
+	if weapon_sprite != null:
+		weapon_sprite.texture = null
+		weapon_sprite.visible = false
+	# 婵繐绠戝▍鎺楀矗濡搫顕ч柡鍐硾閸╂盯寮敮顔剧閻熸瑦甯熸竟濠呭姢婵繐绠戝▍鎺楁晬婢跺瞼鐭嬮柛姘墣閸掓盯宕?	_refresh_character_texture()
+
+# 濞村吋锚閸樻盯宕濋悩鐑樼グ闂佹彃绉撮崺妤佺瑹瑜斿鐗堢閾忕懓鈷栭柨娑欑⊕閻ュ懘寮垫径鎰闁告帗鍎肩粊顐⑩攦閹邦厽顦ч柟闈涚Т濞叉牠鏌呴埀顒勫籍瑜忓▓鎴犳喆閹烘洖顥忔慨婵撶畱濞呮帞绱掗崟顐ｅ€ら柛銉ゅ嫎閳?func _refresh_character_texture():
+	var char_id: String = GameState.selected_character
+	var wid: String = Weapons.current_id
+	var combo := "res://art/chars/%s_%s.png" % [char_id, wid]
+	var armed := "res://art/chars/%s_m1911.png" % char_id
+	var fallback := "res://art/%s.png" % char_id
+	var path: String = REMADE_SIDE_TEXTURES.get(char_id, combo)
+	if not ResourceLoader.exists(path):
+		path = combo
+	if not ResourceLoader.exists(path):
+		path = armed
+	if not ResourceLoader.exists(path):
+		path = fallback
+	print("[player] char=%s weapon=%s -> load %s" % [char_id, wid, path])
+	if ResourceLoader.exists(path):
+		var tex := load(path) as Texture2D
+		sprite.texture = tex
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var s := 180.0 / tex.get_height()
+		# 閻犱線顣︾粭鍛村春閸濆嫬娅欑紓鍌楁櫆閺備線鏁嶅铏闯閻?闁解偓閽樺鍕鹃柛妯侯儑缂傚骞忔径澶婂殤濞寸姰鍎遍悾鐘崇▔閸濆嫮鍞ㄩ柛鎴濇４缁辨繈鏌嗛崹顔煎赋闁硅泛锕ㄩ～妤呮嚌閼煎墎楔缂傚倵鏅炵粔铏逛焊?		sprite_base_scale = Vector2(s, s)
+		sprite.scale = sprite_base_scale
+		stride_px = float(STRIDE_PX.get(char_id, 60.0))
+		if stride_px <= 0.1:
+			stride_px = 60.0
+		# 闁哄唲鍥ｅ亾閹邦剚濮庨柛銉﹀劤鐎垫﹢宕ラ锝嗭紜濞存粏娅ｆ晶鍧楁晬鐏炶偐绐楅柛锔哄妺缁楀懏绋夐埀顒傛暜瑜戦々顐︽儎閺嶃劍鐓€闁绘鐗愰崚娑㈠炊娣囨墎鍋?		# 闁哄倹澹嗘晶妤呮焻閹邦剚濮庨柛鏂诲妿閺佸墽鈧懓鏈崹姘跺礈瀹ュ嫮绠介柣锝嗙懅閳诲吋鎯旇箛鎾愁嚙閻犙嗘腹缁憋繝濡存担绋跨缂傚倵鏅涢幏浼村箥椤掆偓閻ㄥ綊鏁嶇仦鑲╃ɑ濞戞挸绉撮崹蹇涘箲閵忊剝锛嬮柛銉ュ⒔婢ф牠濡?		_load_walk_frames(char_id + '_mg_mp5')
+		if walk_frames.size() != WALK_FRAME_COUNT:
+			_load_walk_frames(char_id)
+	else:
+		var img: Image = Image.create(32, 48, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0.25, 0.6, 1.0))
+		sprite.texture = ImageTexture.create_from_image(img)
+
+# 闁告梻濮惧ù?art/walk/{key}_0..3.png闁挎稒绋撳杈ㄧ鐠佸磭绉垮☉鎾亾鐎殿喚濮村銊╁极缂堢姷绉奸柡鈧幆褏纾鹃柨娑樼墔缁绘岸骞愭担绋挎枾閻犳劖娼欏ù妯荤▔瀹ュ懎袟闁?func _load_walk_frames(key: String):
+	walk_frames.clear()
+	walk_frame_idx = -1
+	var got: Array[Texture2D] = []
+	for i in range(WALK_FRAME_COUNT):
+		var p := "res://art/walk/%s_%d.png" % [key, i]
+		if not ResourceLoader.exists(p):
+			return
+		got.append(load(p) as Texture2D)
+	walk_frames = got
+
+# ----------------------------------------------------------------------------
+# update_hud()闁挎稒鑹鹃崺娑㈠棘閺夊じ绠☉鎾愁儓椤鎮伴埀顒勫级?# 閻炴稈鍋撻柡澶涚磿閺?ColorRect闁挎稑鐬煎ú鍧楀箳閵夛附鏆悗纭呮鐎规娊宕畝鍕垫澒闁肩顕滅槐婵堢不閳ь剟宕￠弴鐐茶闂傚牏濯寸槐娆愮▔瀹ュ洦鏆忛柛銉ュ⒔婢ф牠鏁?# ----------------------------------------------------------------------------
+func update_hud():
+	var bar_fg: ColorRect = get_tree().get_first_node_in_group("health_bar_fg")
+	var label: Label = get_tree().get_first_node_in_group("health_label")
+	if bar_fg != null:
+		var pct := float(health) / float(max_hp)
+		pct = clamp(pct, 0.0, 1.0)
+		# 閻庣妫勭€规娊鏁嶅顓炲К閻炴稈鍋?196px闁挎稑鏈€垫粓宕滈埡鈧紞鎴犳偘閳ь剟鏌岃箛鏇燁仴闁告帒妫欓惁顔剧磽閳哄倹鏉?		bar_fg.size.x = int(196.0 * pct)
+		# 濡増绮忔竟濠囨⒕韫囨凹鏀ㄩ梺鎻掔箰瑜板宕犻弽鐢电獥>50% 缂備礁灏呯槐?25% 濮掓稑瀚哥槐婵嬪触閿曗偓閸垳鐥?		if pct > 0.5:
+			bar_fg.color = Color(0.15, 0.85, 0.2, 1)    # 缂備浇鍎绘竟?		elif pct > 0.25:
+			bar_fg.color = Color(0.9, 0.75, 0.1, 1)     # 濮掓稑瀚竟?		else:
+			bar_fg.color = Color(0.9, 0.12, 0.12, 1)     # 缂佷勘鍨兼竟?	if label != null:
+		label.text = "HP: %d" % health   # 闁哄嫬澧介妵姘跺极閺夎法鎽熼柨娑樿嫰椤?HP: 95
+
+# ----------------------------------------------------------------------------
+# take_damage()闁挎稒鑹捐ぐ鍫熷閵堝棗鈷忛悶娑掑亾
+#   amount 闁哄嫷鍨辨晶鍛婂緞濮橆剛姣岄柣鎰缁辨瑦绋夎濡?闁肩鑻妵鏃堟焾閹存帞鐐?5闁?# ----------------------------------------------------------------------------
+func take_damage(amount):
+	if invuln > 0 or dead:
+		return   # 闁哄啰濮甸弲顐ｇ▔椤撶喎鐏楃€圭寮堕?闁?濞戞挸绉垫晶?	health -= amount
+	invuln = 1.0        # 闁告瑦銇炲┑鈧柛?1 缂佸甯楀Λ銈夊极?	update_hud()        # 闁告帡鏀遍弻濠勬偘閳ь剟寮?	# 闂傚偆浜炵€涒晜绋夐埀顒佺▔鐎ｎ偄绲圭紒鈧崫鍕秬濞?	sprite.modulate = Color(1, 0.3, 0.3)
+	await get_tree().create_timer(0.12).timeout
+	sprite.modulate = Color(1, 1, 1)
+	if health <= 0:
+		_show_game_over()   # 閻炴稈鍋撶紒宀冩〃缁?闁?婵炴挸鎲￠崹娆戠磼閹惧瓨灏?
+# ----------------------------------------------------------------------------
+# _show_game_over()闁挎稒纰嶅Ο澶岀矆閹巻鍋撶仦鍓у煑闁规潙绻掔划銊╁级閻旂补鍋撳澶嬫〃闁哄灏呯槐婵嬬嵁閼搁潧鐦?R 闂佹彃绉寸槐?# ----------------------------------------------------------------------------
+func _show_game_over():
+	dead = true
+	var go_panel: Control = get_tree().get_first_node_in_group("game_over_panel")
+	if go_panel != null:
+		go_panel.visible = true   # 闁哄嫬澧介妵姘辩磼閹惧瓨灏嗛梻鍫涘灪濠㈡﹢鏁嶉崷顡n.tscn 闂佹彃鑻崙锟犲磻濮橆兙鍋ㄩ柨?		# 閻犱讲鏅滄晶宥夊嫉婢跺濮庨悘蹇曨焾娴犵姵绋?		for z in get_tree().get_nodes_in_group("zombies"):
+			if z.has_method("stop_moving"):
+				z.stop_moving()
+		# 缂佹稑顦欢鐔兼偝閳轰緡鍟€闁?R 闂佹彃绉寸槐?		while true:
+			await get_tree().process_frame
+			if Input.is_key_pressed(KEY_R):
+				get_tree().reload_current_scene()
+				return
+	else:
+		# 婵炲备鍓濆﹢浣虹磼閹惧瓨灏嗛梻鍫涘灪濠㈡浜告潏鈺傜函闁规亽鍎抽悺?0.6 缂佸甯￠崳绋款嚕閳?		await get_tree().create_timer(0.6).timeout
+		get_tree().reload_current_scene()
