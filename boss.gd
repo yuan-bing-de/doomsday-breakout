@@ -92,6 +92,7 @@ var _charge_dashing := false
 var _charge_hit := false
 var _hit_flash: Tween = null
 var _sprite: Sprite2D = null
+var _tex_scale := 1.0       # 立绘缩放（贴图→游戏像素），腿动画做单位换算用
 var _health_bar: Node2D = null
 var _head_top: float = -170.0
 var _dmg_seq := 0
@@ -141,6 +142,9 @@ func _ready():
 	_motion.configure(_sprite, BODY_HALF_H)
 	_motion_cfg = motion_cfg if not motion_cfg.is_empty() else _DEFAULT_MOTION
 
+	# 双腿分离：有腿的 BOSS（暴食者/绿巨人）把左右腿切成独立精灵交替迈步
+	_setup_legs()
+
 	health = max_health
 	global_position.y = STAND_Y + RISE_FROM
 	skill_timer = skill_interval
@@ -157,9 +161,73 @@ func _load_texture():
 	# 高度自适应：把贴图缩放到「碰撞体高度 × 体型倍率」，再叠在节点原点。
 	# 这样脚底永远落在 GROUND_LINE 上，换任意尺寸/比例的贴图都不会悬空或陷地。
 	var s: float = (BODY_HALF_H * 2.0 / float(tex.get_height())) * SPRITE_SCALE_MUL
+	_tex_scale = s
 	_sprite.scale = Vector2(s, s)
 	_sprite.position.y = 0.0
 	_head_top = -BODY_HALF_H * SPRITE_SCALE_MUL
+
+# ---------------------------------------------------------------------------
+# _setup_legs()：双腿分离——把立绘下半部分的左右腿切成两个独立 Sprite2D，
+#   由 boss_motion.gd 按走路相位驱动交替迈步（仅 motion 表配了 legs 的 BOSS）。
+# 实现：运行时复制一份贴图 Image，把腿部矩形填成透明作为身体；
+#   腿用 AtlasTexture 裁同一张原图的腿部区域（含髋部上方一段重叠，抬腿时接缝不露）。
+#   腿是 _sprite 的子节点，自动继承朝向翻转/起伏/技能姿态/受击闪红。
+# legs 配置（boss_catalog.gd 的 motion 表，归一化坐标 0~1，随贴图尺寸自适应）：
+#   "legs": {"l": {"rect": [x,y,w,h], "hip": [x,y]}, "r": {...}},
+#   rect 腿部裁剪区（含髋上重叠带），hip 转轴点（髋部）。
+# ---------------------------------------------------------------------------
+func _setup_legs():
+	var legs_cfg: Dictionary = _motion_cfg.get("legs", {})
+	if legs_cfg.is_empty():
+		return
+	var tex := _sprite.texture as Texture2D
+	if tex == null:
+		return
+	var img := tex.get_image()
+	if img == null or img.is_empty():
+		return
+	img.convert(Image.FORMAT_RGBA8)
+	var W := float(tex.get_width())
+	var H := float(tex.get_height())
+	var leg_nodes := {}
+	var rest := {}
+	for key in ["l", "r"]:
+		var lc: Dictionary = legs_cfg.get(key, {})
+		if lc.is_empty():
+			continue
+		var rn: Array = lc.get("rect", [])
+		var hn: Array = lc.get("hip", [])
+		if rn.size() < 4 or hn.size() < 2:
+			continue
+		var rx := int(rn[0] * W)
+		var ry := int(rn[1] * H)
+		var rw := int(rn[2] * W)
+		var rh := int(rn[3] * H)
+		var hx := float(hn[0]) * W
+		var hy := float(hn[1]) * H
+		# 身体：擦掉髋部以下的腿区（重叠带保留，腿抬起时由腿精灵盖住不露缝）
+		img.fill_rect(Rect2i(rx, int(hy), rw, int(H) - int(hy)), Color(0, 0, 0, 0))
+		var at := AtlasTexture.new()
+		at.atlas = tex
+		at.region = Rect2(rx, ry, rw, rh)
+		var leg := Sprite2D.new()
+		leg.name = "Leg" + key.to_upper()
+		leg.texture = at
+		leg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		leg.centered = true
+		# 以髋部为转轴：position 是髋部在 _sprite 本地（贴图像素，以中心为原点）的坐标
+		leg.position = Vector2(hx - W * 0.5, hy - H * 0.5)
+		leg.offset = Vector2(rx + rw * 0.5 - hx, ry + rh * 0.5 - hy)
+		_sprite.add_child(leg)
+		leg_nodes[key] = leg
+		rest[key] = leg.position
+	if leg_nodes.is_empty():
+		return
+	# 身体换上擦掉腿的贴图（腿由独立精灵绘制，静止时像素完全重合、无接缝）
+	_sprite.texture = ImageTexture.create_from_image(img)
+	_motion.configure_legs(leg_nodes.get("l"), leg_nodes.get("r"),
+		rest.get("l", Vector2.ZERO), rest.get("r", Vector2.ZERO),
+		1.0 / maxf(0.001, _tex_scale))
 
 # ---------------------------------------------------------------------------
 func _physics_process(delta: float):
