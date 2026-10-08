@@ -22,6 +22,10 @@ extends CharacterBody2D
 #   "rock"   投石 —— 绿巨人：弯腰捡石抛出，石头抛物线飞行，落地爆炸
 #   "wave"   死亡斩波 —— 收割者：举镰横扫，甩出紫色月牙弹体，命中玩家重伤
 #
+# 走位（movement，boss_catalog.gd 配置）：
+#   "chase" 追击 —— 一直走向玩家（暴食者/绿巨人）
+#   "kite"  风筝 —— 远程 BOSS 用：玩家过近后撤、过远靠近、舒适区悬停（收割者）
+#
 # 必须 add_to_group("zombies")，否则玩家自动瞄准、手雷/导弹范围伤害都打不到它
 # （player.gd 自动瞄准与 Explosion.damage_zombies 都只认这个组）。
 # ============================================================================
@@ -64,6 +68,9 @@ const SKILL2_WAVE := "wave"
 @export var skill_interval: float = 6.0    # 【技能冷却】技能之间隔几秒
 @export var skill_damage: int = 25             # 技能伤害
 @export var display_name: String = "暴食者"
+@export var movement: String = "chase"  # 【走位模式】chase追击 / kite风筝（远程 BOSS 保持距离）
+@export var kite_min: float = 320.0     # 【风筝内圈】玩家距离小于此则后撤（像素）
+@export var kite_max: float = 520.0     # 【风筝外圈】玩家距离大于此则靠近（像素）
 # ---- 副技能（独立冷却，与主技能并行）----
 @export var skill2_type: String = ""       # 【副技能类型】roar怒吼 / rock投石 / wave斩波（空 = 无）
 @export var skill2_interval: float = 12.0  # 【副技能冷却】秒
@@ -215,10 +222,21 @@ func _physics_process(delta: float):
 		_start_skill2()
 		return
 
-	var dir: float = sign(player_ref.global_position.x - global_position.x)
+	var dx: float = player_ref.global_position.x - global_position.x
+	var dir: float = sign(dx)
 	if dir != 0.0:
 		_sprite.flip_h = dir < 0
-	velocity.x = dir * speed
+	# 走位模式：chase 一直追；kite 风筝走位（远程 BOSS）：太近后撤、太远靠近、舒适区悬停
+	if movement == "kite":
+		var dist := absf(dx)
+		if dist < kite_min:
+			velocity.x = -dir * speed
+		elif dist > kite_max:
+			velocity.x = dir * speed
+		else:
+			velocity.x = 0.0
+	else:
+		velocity.x = dir * speed
 
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
