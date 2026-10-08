@@ -422,6 +422,9 @@ func spawn_boss(type: String, hp_mul: float):
 	b.skill2_interval = float(cfg.get("skill2_interval", 12.0))
 	b.skill2_damage = int(cfg.get("skill2_damage", 0))
 	b.skill2_range = float(cfg.get("skill2_range", 0.0))
+	b.movement = String(cfg.get("movement", "chase"))
+	b.kite_min = float(cfg.get("kite_min", 320.0))
+	b.kite_max = float(cfg.get("kite_max", 520.0))
 	b.motion_cfg = cfg.get("motion", {})
 	b.display_name = String(cfg["name"])
 	# BOSS 半高 170 → 中心 Y = 478 - 170 = 308，脚底踩在路面上
