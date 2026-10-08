@@ -30,6 +30,13 @@ extends Node2D
 #   dust_color 尘土颜色
 #   float_amp  漂浮起伏幅度(px，float 风格用)
 #   float_speed 漂浮频率(Hz)
+#   leg_lift   腿部抬起幅度(游戏像素，默认 12)
+#   leg_swing  腿部前后摆动幅度(游戏像素，默认 7)
+#   legs       双腿分离配置（归一化 0~1 坐标，随贴图尺寸自适应）：
+#                {"l": {"rect": [x,y,w,h], "hip": [x,y]}, "r": {...}}
+#              rect 腿部裁剪区（含髋部上方一段重叠，抬腿不露缝）；hip 转轴点（髋部）。
+#              配了 legs 的 BOSS（暴食者/绿巨人）走路时双腿按相位差 PI 交替迈步；
+#              没配的（收割者穿长袍）保持原样。
 # ============================================================================
 
 var target: Sprite2D = null
@@ -42,12 +49,29 @@ var _walk_blend := 0.0      # 走路权重（0 站立 ~ 1 行走，平滑过渡�
 var _bob := 0.0             # 垂直起伏（px，向下为正）
 var _sway := 0.0            # 左右摇摆（rad）
 var _lean := 0.0            # 前进方向前倾（rad）
-var _squash := 0.0          # 压扁系数：>0 压扁（变宽变矮）/ <0 拉长（变窄变高）
+var _squash := 0.0            # 压扁系数：>0 压扁（变宽变矮）/ <0 拉长（变窄变高）
+var _leg_l: Sprite2D = null     # 左腿精灵（_sprite 子节点，髋部为转轴）
+var _leg_r: Sprite2D = null     # 右腿精灵
+var _leg_rest_l := Vector2.ZERO # 腿静止时的本地坐标
+var _leg_rest_r := Vector2.ZERO
+var _leg_k := 1.0               # 贴图像素 / 游戏像素（腿动画位移单位换算）
+var _leg_blend := 0.0           # 腿部动作权重（走路 1，站立/技能 0，平滑过渡）          # 压扁系数：>0 压扁（变宽变矮）/ <0 拉长（变窄变高）
 
 
 func configure(sprite: Sprite2D, feet_y: float) -> void:
 	target = sprite
 	_feet_y = feet_y
+
+
+# configure_legs()：接入 boss.gd 分离出的双腿精灵。
+#   rest_l/rest_r 腿静止时的本地坐标；k 贴图像素/游戏像素换算
+#   （位移按游戏像素配，内部换算成贴图像素）。
+func configure_legs(leg_l: Sprite2D, leg_r: Sprite2D, rest_l: Vector2, rest_r: Vector2, k: float) -> void:
+	_leg_l = leg_l
+	_leg_r = leg_r
+	_leg_rest_l = rest_l
+	_leg_rest_r = rest_r
+	_leg_k = k
 
 
 # 每帧由 boss.gd 调用一次
@@ -64,6 +88,13 @@ func advance(delta: float, distance: float, state: String, progress: float, cfg:
 		_walk_blend = move_toward(_walk_blend, 1.0, delta * 8.0)
 	else:
 		_walk_blend = move_toward(_walk_blend, 0.0, delta * 8.0)
+
+	# ---- 双腿交替迈步：走路和冲锋都算（冲刺位移大，相位转得快，腿摆得更快）----
+	var stepping := moving or (state == "charge" and distance > 0.001)
+	if state == "charge" and distance > 0.001:
+		var step_c := float(cfg.get("stride", 80.0))
+		_phase = fposmod(_phase + distance / maxf(1.0, step_c * 2.0) * TAU, TAU)
+	_animate_legs(delta, stepping)
 
 	# ---- 走路基础姿态（heavy/proud 共用，幅度不同）----
 	_bob = float(cfg.get("bob", 4.0)) * sin(_phase) * _walk_blend
@@ -91,6 +122,36 @@ func advance(delta: float, distance: float, state: String, progress: float, cfg:
 			_spawn_step_dust()
 
 	_apply()
+
+
+# ----------------------------------------------------------------------------
+# _animate_legs()：双腿交替迈步。两腿相位差 PI：左腿抬起时右腿落下。
+#   lift 抬腿高度（游戏像素，cfg leg_lift）；swing 前后摆动（游戏像素，cfg leg_swing）。
+#   非迈步时（站立/技能）腿平滑回正；位移在 _sprite 本地（贴图像素）空间计算。
+# ----------------------------------------------------------------------------
+func _animate_legs(delta: float, stepping: bool) -> void:
+	if _leg_l == null and _leg_r == null:
+		return
+	_leg_blend = move_toward(_leg_blend, 1.0 if stepping else 0.0, delta * (8.0 if stepping else 10.0))
+	var b := _leg_blend
+	if b < 0.003:
+		if _leg_l != null:
+			_leg_l.position = _leg_rest_l
+			_leg_l.rotation = 0.0
+		if _leg_r != null:
+			_leg_r.position = _leg_rest_r
+			_leg_r.rotation = 0.0
+		return
+	var lift := float(_cfg.get("leg_lift", 12.0)) * _leg_k
+	var swing := float(_cfg.get("leg_swing", 7.0)) * _leg_k
+	var s1 := sin(_phase)
+	var s2 := sin(_phase + PI)
+	if _leg_l != null:
+		_leg_l.position = _leg_rest_l + Vector2(cos(_phase) * swing, -maxf(0.0, s1) * lift) * b
+		_leg_l.rotation = s1 * 0.06 * b
+	if _leg_r != null:
+		_leg_r.position = _leg_rest_r + Vector2(cos(_phase + PI) * swing, -maxf(0.0, s2) * lift) * b
+		_leg_r.rotation = s2 * 0.06 * b
 
 
 # ----------------------------------------------------------------------------
@@ -201,7 +262,10 @@ func _spawn_step_dust() -> void:
 		var sz := randf_range(2.5, 6.0)
 		var dur := randf_range(0.35, 0.6)
 		var col: Color = Color(base_col.r, base_col.g, base_col.b, randf_range(0.35, 0.7))
-		p.position = Vector2(spread * 0.35, _feet_y + randf_range(0.0, 6.0))
+		# 尘土跟迈出的那条腿走：按半步序号交替左右，并随朝向镜像
+		var side := 1.0 if _last_step_i % 2 == 0 else -1.0
+		var dir := 1.0 if target == null or not target.flip_h else -1.0
+		p.position = Vector2(spread * 0.35 + side * dir * 26.0, _feet_y + randf_range(0.0, 6.0))
 		p.draw.connect(func():
 			var r := float(p.get_meta("r", 4.0))
 			var c: Color = p.get_meta("c", Color(0.6, 0.5, 0.4, 0.6))
