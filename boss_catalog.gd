@@ -24,6 +24,9 @@ extends RefCounted
 #   skill2_interval : 副技能冷却（秒）
 #   skill2_damage   : 副技能伤害
 #   skill2_range    : 副技能作用半径（rock=爆炸半径 / roar=声波半径 / wave 用 0）
+#   movement        : 走位模式 chase追击 / kite风筝（远程 BOSS 保持距离：太近后撤/太远靠近）
+#   kite_min        : 风筝内圈距离（像素），movement=kite 时生效
+#   kite_max        : 风筝外圈距离（像素），movement=kite 时生效
 #   motion          : 动作层参数表（boss_motion.gd 读取）
 #                     style 走路风格 heavy沉重 / proud稳健 / float漂浮
 #                     stride 一步像素距离；bob 起伏 px；sway 摇摆 rad；lean 前倾 rad
@@ -70,6 +73,7 @@ const DEFINITIONS := {
 		"texture": "res://art/boss_prototypes_20260926/boss_reaper.png",
 		"max_health": 1500, "speed": 50.0, "attack_type": "ranged",
 		"melee_range": 0.0, "ranged_range": 600.0, "attack_interval": 1.8,
+		"movement": "kite", "kite_min": 320.0, "kite_max": 520.0,
 		"contact_damage": 15, "skill_type": "summon", "skill_interval": 9.0, "skill_damage": 0,
 		"skill2_type": "wave", "skill2_interval": 8.0, "skill2_damage": 30, "skill2_range": 0.0,
 		"motion": {
